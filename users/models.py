@@ -1,0 +1,40 @@
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+from services.models import Skill, Category
+
+
+class User(AbstractUser):
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15, blank=False, null=False)
+
+    groups = models.ManyToManyField(
+        'auth.Group', 
+        related_name='custom_user_set', 
+        blank=True
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission', 
+        related_name='custom_user_permissions_set', 
+        blank=True
+    )
+
+    def __str__(self):
+        return self.username
+
+class Freelancer(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
+    profile = models.TextField(blank=True, null= True)
+    skills = models.ManyToManyField(Skill, blank=True) 
+    rating = models.CharField(max_length=255, blank=True, null=True)
+    categories = models.ManyToManyField(Category, blank=True)
+
+    def __str__(self):
+        return self.user.username
+
+class Client(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
+    preferred_categories = models.ManyToManyField(Category, blank=True, related_name="clients")
+
+    def __str__(self):
+        return self.user.username
+    

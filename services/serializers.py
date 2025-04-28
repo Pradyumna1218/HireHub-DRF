@@ -1,0 +1,79 @@
+from rest_framework import serializers
+from .models import Category, Skill, Service
+from users.models import Freelancer
+from django.db import transaction
+
+
+class SkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = ['id', 'name']
+
+class CategorySerializer(serializers.ModelSerializer):
+    skills = SkillSerializer(read_only = True, many=True)
+
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'skills']
+
+
+class ServiceSerializer(serializers.ModelSerializer):
+    categories = serializers.ListField(
+        child=serializers.CharField(),
+        write_only=True,  
+    )
+    category_names = serializers.SerializerMethodField(read_only=True)  
+    freelancer_name = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Service
+        fields = ['freelancer_name', 'categories', 'title', 'description', 'price', 'is_active', 'skills', 'category_names']
+
+    def validate_categories(self, value):
+        """Convert category names to Category instances."""
+        categories = []
+        for category_name in value:
+            try:
+                category = Category.objects.get(name=category_name)
+                categories.append(category)
+            except Category.DoesNotExist:
+                raise serializers.ValidationError(f"Category '{category_name}' does not exist.")
+        return categories
+
+    def create(self, validated_data):
+        categories = validated_data.pop('categories')
+        freelancer = validated_data.pop('freelancer')
+
+        with transaction.atomic():
+            service = Service.objects.create(freelancer=freelancer, **validated_data)
+            service.categories.set(categories)
+            service.save()
+            
+        return service
+
+    def get_category_names(self, obj):
+        return [category.name for category in obj.categories.all()]
+    
+    def get_freelancer_name(self, obj):
+        return obj.freelancer.user.username
+
+    def get_skills(self, obj):
+        category_skills = []
+        for category in obj.categories.all():
+            category_skills += list(category.skills.all())
+
+        category_skill_ids = {skill.id for skill in category_skills}
+
+        freelancer_skills = obj.freelancer.skills.all() 
+        freelancer_skill_names = []
+
+        for skill in freelancer_skills:
+            if skill.id in category_skill_ids:
+                freelancer_skill_names.append(skill.name)
+
+        return freelancer_skill_names
+
+
+
+
