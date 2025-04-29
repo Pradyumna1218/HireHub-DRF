@@ -98,3 +98,16 @@ class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
     
     def get_skills(self, obj):
         return [skills.name for skills in obj.freelancer.skills.all()]
+
+
+class ServiceSearchSerializer(serializers.Serializer):
+    categories = serializers.ListField(
+        child = serializers.CharField(),
+        required = False
+    )
+    skills = serializers.ListField(
+        child = serializers.CharField(),
+        required = False
+    )
+
+ 

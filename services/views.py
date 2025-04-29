@@ -4,7 +4,8 @@ from .models import Category,Service
 from .serializers import (
     CategorySerializer, 
     ServiceSerializer,
-    FreelancerServiceDetailSerializer
+    FreelancerServiceDetailSerializer,
+    ServiceSearchSerializer
     )
 from .permissions import IsFreelancer, IsClient
 from rest_framework import status
@@ -30,9 +31,36 @@ class ClientServiceView(APIView):
     permission_classes = [IsClient]
 
     def get(self, request):
-        queryset = Service.objects.all()
-        serializer = ServiceSerializer(queryset, many= True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        serializer = ServiceSearchSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+
+        categories = serializer.validated_data.get('categories', [])
+        skills = serializer.validated_data.get('skills', [])
+
+        queryset_all = Service.objects.all()
+
+        if not categories and not skills:
+            all_services_serializer = ServiceSerializer(queryset_all, many=True)
+            return Response({
+                "all_services": all_services_serializer.data
+            }, status=status.HTTP_200_OK)
+
+        queryset_by_category = Service.objects.none()
+        queryset_by_skills = Service.objects.none()
+
+        if categories:
+            queryset_by_category = queryset_all.filter(categories__name__in=categories).distinct()
+
+        if skills:
+            queryset_by_skills = queryset_all.filter(freelancer__skills__name__in=skills).distinct()
+
+        category_serializer = ServiceSerializer(queryset_by_category, many=True)
+        skill_serializer = ServiceSerializer(queryset_by_skills, many=True)
+
+        return Response({
+            "category_matches": category_serializer.data,
+            "skill_matches": skill_serializer.data,
+        }, status=status.HTTP_200_OK)
     
 class FreelancerServiceDetailView(APIView):
     def get(self, request, pk):
@@ -53,5 +81,6 @@ class FreelancerServiceDetailView(APIView):
         serializer = FreelancerServiceDetailSerializer(service, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
