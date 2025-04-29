@@ -1,2 +1,2 @@
 # HireHub-DRF
-Making a fiverr esk site using Djanog Rest API
+Making a fiverr esk site using Django Rest API
