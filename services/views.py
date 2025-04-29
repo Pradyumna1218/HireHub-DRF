@@ -1,7 +1,11 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from .models import Category,Service
-from .serializers import CategorySerializer, ServiceSerializer
+from .serializers import (
+    CategorySerializer, 
+    ServiceSerializer,
+    FreelancerServiceDetailSerializer
+    )
 from .permissions import IsFreelancer, IsClient
 from rest_framework import status
 from users.models import Freelancer
@@ -13,27 +17,29 @@ class CategoryListView(APIView):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
-    
 class FreelancerServiceView(APIView):
     permission_classes = [IsFreelancer, IsAuthenticated]
 
     def post(self, request):
-        freelancer = Freelancer.objects.get(user=request.user)
-        
-        request.data['freelancer'] = freelancer.user.id  # Set the ID instead of the instance directly
-        
         serializer = ServiceSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        
         serializer.save()
-        
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-
+    
 class ClientServiceView(APIView):
     permission_classes = [IsClient]
 
     def get(self, request):
         queryset = Service.objects.all()
         serializer = ServiceSerializer(queryset, many= True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+class FreelancerServiceDetailView(APIView):
+    def get(self, request, pk):
+        try:
+            service = Service.objects.get(id=pk, freelancer__user=request.user)
+        except Service.DoesNotExist:
+            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = FreelancerServiceDetailSerializer(service)
         return Response(serializer.data, status=status.HTTP_200_OK)

@@ -227,7 +227,7 @@ class PasswordResetSerializer(serializers.Serializer):
     def validate(self, data):
         token = data.get('token')
         try:
-            user_id = signer.unsign(token, max_age=3600)  # 1 hour expiry
+            user_id = signer.unsign(token, max_age=3600)  
             user = User.objects.get(pk=user_id)
         except (BadSignature, SignatureExpired, User.DoesNotExist):
             raise serializers.ValidationError({"token": "Invalid or expired token."})

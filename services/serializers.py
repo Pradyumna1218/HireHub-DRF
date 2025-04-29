@@ -16,22 +16,24 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name', 'skills']
 
-
 class ServiceSerializer(serializers.ModelSerializer):
     categories = serializers.ListField(
         child=serializers.CharField(),
         write_only=True,  
     )
     category_names = serializers.SerializerMethodField(read_only=True)  
-    freelancer_name = serializers.SerializerMethodField()
+    freelancer = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
 
     class Meta:
         model = Service
-        fields = ['freelancer_name', 'categories', 'title', 'description', 'price', 'is_active', 'skills', 'category_names']
+        fields = [
+            'freelancer', 'categories', 'title', 
+            'description', 'price', 'is_active', ''
+            'skills', 'category_names'
+            ]
 
     def validate_categories(self, value):
-        """Convert category names to Category instances."""
         categories = []
         for category_name in value:
             try:
@@ -43,7 +45,7 @@ class ServiceSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         categories = validated_data.pop('categories')
-        freelancer = validated_data.pop('freelancer')
+        freelancer = self.context['request'].user.freelancer
 
         with transaction.atomic():
             service = Service.objects.create(freelancer=freelancer, **validated_data)
@@ -55,7 +57,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     def get_category_names(self, obj):
         return [category.name for category in obj.categories.all()]
     
-    def get_freelancer_name(self, obj):
+    def get_freelancer(self, obj):
         return obj.freelancer.user.username
 
     def get_skills(self, obj):
@@ -75,5 +77,24 @@ class ServiceSerializer(serializers.ModelSerializer):
         return freelancer_skill_names
 
 
+class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
+    freelancer = serializers.SerializerMethodField()
+    categories = serializers.SerializerMethodField()
+    skills = serializers.SerializerMethodField()
 
-
+    class Meta:
+        model = Service
+        fields = [
+            'freelancer', 'categories', 'title', 
+            'description', 'price', 'is_active',
+            'skills' 
+            ]
+        
+    def get_freelancer(self, obj):
+        return obj.freelancer.user.username
+    
+    def get_categories(self, obj):
+        return [category.name for category in obj.categories.all()]
+    
+    def get_skills(self, obj):
+        return [skills.name for skills in obj.freelancer.skills.all()]
