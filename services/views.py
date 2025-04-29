@@ -43,3 +43,15 @@ class FreelancerServiceDetailView(APIView):
         
         serializer = FreelancerServiceDetailSerializer(service)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def patch(self, request, pk):
+        try:
+            service = Service.objects.get(id = pk, freelancer__user = request.user)
+        except Service.DoesNotExist:
+            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = FreelancerServiceDetailSerializer(service, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
+
