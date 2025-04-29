@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import User, Freelancer, Client
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
-from services.utlis import SKILL_CATEGORY_MAP
 from services.models import Skill, Category
 from django.db import transaction, IntegrityError
 
@@ -14,7 +13,6 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
         fields = ["username", "email", "phone", "password"]
     
     def validate_skills(self, value):
-        # Ensure all skills exist in the database
         invalid_skills = []
         for skill_name in value:
             if not Skill.objects.filter(name=skill_name).exists():
@@ -96,9 +94,8 @@ class FreelancerRegistrationSerializers(UserRegistrationSerializers):
             raise serializers.ValidationError({"detail": f"Freelancer registration failed: {str(e)}"})
 
 
-class ClientRegistrationSerializer(serializers.ModelSerializer):
+class ClientRegistrationSerializer(UserRegistrationSerializers):
     preferred_categories = serializers.ListField(required=False, child = serializers.CharField())
-
     class Meta(UserRegistrationSerializers.Meta):
         fields = UserRegistrationSerializers.Meta.fields + ['preferred_categories']
 
@@ -128,9 +125,8 @@ class ClientRegistrationSerializer(serializers.ModelSerializer):
                 return user
 
         except(IntegrityError, serializers.ValidationError) as e:
-            raise serializers.ValidationError({"detail": f"Freelancer registration failed: {str(e)}"})
+            raise serializers.ValidationError({"detail": f"Client registration failed: {str(e)}"})
 
-        return user
     
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
