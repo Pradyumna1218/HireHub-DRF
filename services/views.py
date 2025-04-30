@@ -11,7 +11,7 @@ from .permissions import IsFreelancer, IsClient
 from rest_framework import status
 from users.models import Freelancer
 from rest_framework.permissions import IsAuthenticated
-
+from .services import ServiceSearcher
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -37,22 +37,14 @@ class ClientServiceView(APIView):
         categories = serializer.validated_data.get('categories', [])
         skills = serializer.validated_data.get('skills', [])
 
-        queryset_all = Service.objects.all()
+        searcher = ServiceSearcher(categories= categories, skills=skills)
+        queryset_all, queryset_by_category, queryset_by_skills = searcher.search()
 
-        if not categories and not skills:
-            all_services_serializer = ServiceSerializer(queryset_all, many=True)
+        if queryset_all is not None:
+            all_services_serializer = ServiceSerializer(queryset_all, many = True)
             return Response({
                 "all_services": all_services_serializer.data
             }, status=status.HTTP_200_OK)
-
-        queryset_by_category = Service.objects.none()
-        queryset_by_skills = Service.objects.none()
-
-        if categories:
-            queryset_by_category = queryset_all.filter(categories__name__in=categories).distinct()
-
-        if skills:
-            queryset_by_skills = queryset_all.filter(freelancer__skills__name__in=skills).distinct()
 
         category_serializer = ServiceSerializer(queryset_by_category, many=True)
         skill_serializer = ServiceSerializer(queryset_by_skills, many=True)
