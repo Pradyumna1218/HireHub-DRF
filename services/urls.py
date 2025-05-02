@@ -3,7 +3,8 @@ from .views import (
     CategoryListView, 
     FreelancerServiceView, 
     ClientServiceView,
-    FreelancerServiceDetailView
+    FreelancerServiceDetailView,
+    ClientServiceDetailView
         )
 
 urlpatterns = [
@@ -11,4 +12,5 @@ urlpatterns = [
     path('freelancer/services/', FreelancerServiceView.as_view(), name='freelancer-services'),
     path('client/services/', ClientServiceView.as_view(), name='freelancer-services'),
     path('freelancer/services/<int:pk>/', FreelancerServiceDetailView.as_view(), name='freelancer-service-detail'),
+    path('client/services/<int:pk>/', ClientServiceDetailView.as_view(), name='freelancer-service-detail'),
 ]

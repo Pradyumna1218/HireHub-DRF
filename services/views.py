@@ -9,9 +9,11 @@ from .serializers import (
     )
 from .permissions import IsFreelancer, IsClient
 from rest_framework import status
-from users.models import Freelancer
 from rest_framework.permissions import IsAuthenticated
 from .services import ServiceSearcher
+from payments.serializers import OrderSerializer
+from payments.models import Order
+from users.models import Client
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -75,3 +77,45 @@ class FreelancerServiceDetailView(APIView):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+class ClientServiceDetailView(APIView):
+    permission_classes = [IsClient]
+
+    def get(self, request, pk):
+        try:
+            service = Service.objects.get(id=pk)
+            order = Order.objects.filter(client__user = request.user, service= service)
+        except Service.DoesNotExist:
+            return Response({"error": "Didn't find the service"}, status=status.HTTP_404_NOT_FOUND)
+        
+        service_serializer = FreelancerServiceDetailSerializer(service)
+        orders_serializer = OrderSerializer(order, many=True)
+
+        return Response({
+            "service": service_serializer.data,
+            "orders": orders_serializer.data,
+        }, status=status.HTTP_200_OK)
+    
+    def post(self, request, pk):
+        try:
+            service = Service.objects.get(id=pk)
+        except Service.DoesNotExist:
+            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            client = Client.objects.get(user=request.user)
+        except Client.DoesNotExist:
+            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        data = request.data
+        data['client'] = client.pk
+        data['service'] = service.id  
+
+        serializer = OrderSerializer(data=data)
+
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
