@@ -10,7 +10,7 @@ signer = TimestampSigner()
 class UserRegistrationSerializers(serializers.ModelSerializer):
     class Meta: 
         model = User
-        fields = ["username", "email", "phone", "password"]
+        fields = ["id", "username", "email", "phone", "password"]
     
     def validate_skills(self, value):
         invalid_skills = []
@@ -141,6 +141,7 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'skills']
         
 class FreelancerProfileSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='user.id')
     username = serializers.CharField(source='user.username')
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone')
@@ -149,7 +150,7 @@ class FreelancerProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Freelancer
-        fields = ['username', 'email', 'phone', 'profile', 
+        fields = ['id', 'username', 'email', 'phone', 'profile', 
                   'categories','skills', 'rating'
                   ]
 
@@ -192,6 +193,7 @@ class FreelancerProfileSerializer(serializers.ModelSerializer):
     
 
 class ClientProfileSerializer(serializers.ModelSerializer):
+    id = serializers.CharField(source='user.id')
     username = serializers.CharField(source='user.username')
     email = serializers.EmailField(source='user.email')
     phone = serializers.CharField(source='user.phone')
@@ -199,7 +201,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Client
-        fields = ['username', 'email', 
+        fields = ['id', 'username', 'email', 
                   'phone', 'preferred_categories'
                   ]
     

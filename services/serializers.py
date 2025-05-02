@@ -28,8 +28,9 @@ class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'freelancer', 'categories', 'title', 
-            'description', 'price', 'is_active', ''
+
+            'id', 'freelancer', 'categories', 'title', 
+            'description', 'price', 'is_active',
             'skills', 'category_names'
             ]
 
@@ -85,7 +86,7 @@ class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'freelancer', 'categories', 'title', 
+            'id', 'freelancer', 'categories', 'title', 
             'description', 'price', 'is_active',
             'skills' 
             ]
