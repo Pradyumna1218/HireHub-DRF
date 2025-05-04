@@ -76,17 +76,18 @@ class FreelancerServiceDetailView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
 
 class ClientServiceDetailView(APIView):
-    permission_classes = [IsClient]
+    permission_classes = [IsClient, IsAuthenticated]
 
     def get(self, request, pk):
         try:
             service = Service.objects.get(id=pk)
-            order = Order.objects.filter(client__user = request.user, service= service)
+
+            order = Order.objects.filter(client__user=request.user, service=service)
+
         except Service.DoesNotExist:
-            return Response({"error": "Didn't find the service"}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
         
         service_serializer = FreelancerServiceDetailSerializer(service)
         orders_serializer = OrderSerializer(order, many=True)
@@ -102,20 +103,10 @@ class ClientServiceDetailView(APIView):
         except Service.DoesNotExist:
             return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        try:
-            client = Client.objects.get(user=request.user)
-        except Client.DoesNotExist:
-            return Response({"error": "Client not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        data = request.data
-        data['client'] = client.pk
+        data = request.data.copy()
         data['service'] = service.id  
 
-        serializer = OrderSerializer(data=data)
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
+        serializer = OrderSerializer(data=data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

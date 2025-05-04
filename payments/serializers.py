@@ -1,15 +1,13 @@
 from rest_framework import serializers
-from .models import Order, Payment
-from django.utils import timezone
 from datetime import datetime
 from django.utils import timezone
-
+from payments.models import Order, Payment
+from users.models import Client
 
 class OrderSerializer(serializers.ModelSerializer):
-    delivery_time = serializers.CharField(write_only=True, required=False)
+    delivery_time = serializers.CharField(write_only=True)
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     client_name = serializers.SerializerMethodField()
-    order_date = serializers.SerializerMethodField()
-    delivery_date = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -20,48 +18,45 @@ class OrderSerializer(serializers.ModelSerializer):
         read_only_fields = ['order_date', 'delivery_date', 'status']
 
     def get_client_name(self, obj):
-        return obj.client.get_full_name() if hasattr(obj.client, 'get_full_name') else str(obj.client)
+        return obj.client.user.username
 
-    def get_order_date(self, obj):
-        return obj.order_date.strftime("%d %b, %H:%M, %Y")  # e.g., "02 May, 10:45, 2025"
-
-    def get_delivery_date(self, obj):
-        return obj.delivery_date.strftime("%d %b, %H:%M, %Y")
-
-    def create(self, validated_data):
-        delivery_time_str = validated_data.pop('delivery_time', None)
-        if delivery_time_str:
-            validated_data['delivery_date'] = self.parse_delivery_time(delivery_time_str)
-        else:
+    def validate(self, attrs):
+        delivery_time_str = attrs.pop('delivery_time', None)
+        if not delivery_time_str:
             raise serializers.ValidationError({"delivery_time": "This field is required."})
 
-        validated_data['order_date'] = timezone.now()
-        validated_data['status'] = "Pending"
-        return super().create(validated_data)
-
-    def update(self, instance, validated_data):
-        delivery_time_str = validated_data.pop('delivery_time', None)
-        if delivery_time_str:
-            instance.delivery_date = self.parse_delivery_time(delivery_time_str)
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        instance.save()
-        return instance
-
-    def parse_delivery_time(self, time_str):
-        from django.utils import timezone
         current_year = timezone.now().year
         try:
-            return datetime.strptime(f"{current_year}-{time_str}", "%Y-%d-%m %H:%M")
+            full_string = f"{current_year}-{delivery_time_str}"  # e.g., 2025-05-12 15:30
+            parsed_dt = datetime.strptime(full_string, "%Y-%m-%d %H:%M")
+            attrs['delivery_date'] = timezone.make_aware(parsed_dt)
         except ValueError:
             raise serializers.ValidationError({
-                "delivery_time": "Expected format 'DD-MM HH:MM', e.g. '12-05 15:30'"
+                "delivery_time": "Expected format 'MM-DD HH:MM', e.g. '05-12 15:30'"
             })
 
+        return attrs
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        user = request.user
+        service = validated_data.pop('service')
+
+        try:
+            client = user.client
+        except Client.DoesNotExist:
+            raise serializers.ValidationError("Client not found.")
+
+        return Order.objects.create(
+            client=client,
+            service=service,
+            order_date=timezone.now(),
+            status='Pending',
+            **validated_data
+        )
 
 
+        
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
