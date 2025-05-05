@@ -146,3 +146,7 @@ CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_TIMEZONE = 'Asia/Kathmandu'
+
+MONGO_URI = "mongodb://localhost:27017/"
+MONGO_DB_NAME = "hirehub_db"
+MONGO_CHAT_COLLECTION = "messages"
