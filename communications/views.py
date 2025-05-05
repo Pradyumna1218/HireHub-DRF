@@ -54,7 +54,7 @@ class ChatMessageView(APIView):
             raise NotFound("User not found")
         
         other_user_id = str(other_user.id)
-        
+
         if current_user_id == other_user_id:
             return Response(
                 {"error": "You cannot view a chat with yourself."},
@@ -70,7 +70,7 @@ class ChatMessageView(APIView):
 
         if not messages_to_return:
             return Response(
-                {"error": "You don't have access to this conversation."},
+                {"message": "Start A New Conversation"},
                 status=status.HTTP_403_FORBIDDEN
             )
         
