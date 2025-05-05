@@ -33,4 +33,11 @@ class Payment(models.Model):
     status = models.CharField(max_length=50, choices=status_choices, default="Pending")
     payment_amount = models.DecimalField(max_digits=10, decimal_places=2)
     payment_date = models.DateTimeField(default=timezone.now)
+
+    khalti_token = models.CharField(max_length=255, blank=True, null = True)
+    khalti_transaction_id = models.CharField(max_length=255, blank=True, null = True)
+    is_verified = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Payment #{self.id} for Order #{self.order.id}"
     
