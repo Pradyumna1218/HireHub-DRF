@@ -1,8 +1,7 @@
-<!-- templates/khalti_test.html -->
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Khalti Test Payment</title>
+    <title>Khalti Sandbox Payment</title>
     <script src="https://khalti.com/static/khalti-checkout.js"></script>
 </head>
 <body>
@@ -11,7 +10,7 @@
 
     <script>
         var config = {
-            publicKey: "test_public_key_0b30ec2d58964bce8d07fc336d255208",
+            publicKey: "test_public_key_4aee3ae5ff17465e8d467273ba5a5bba", 
             productIdentity: "1234567890",
             productName: "Order Payment",
             productUrl: "http://example.com/product",
@@ -19,13 +18,13 @@
 
             eventHandler: {
                 onSuccess(payload) {
-                    console.log(payload);
+                    console.log("Payment success payload:", payload);
 
-                    fetch("/api/khalti-verify/1/", {
+                    fetch("http://localhost:8000/khalti/verify/2/", {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
-                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NTA5OTI0LCJpYXQiOjE3NDY1MDk2MjQsImp0aSI6ImZlMjUyZjVmZjRkOTQyNGE5ZDAyOWIwNmJjMWQxMDg3IiwidXNlcl9pZCI6MTR9.qRlpNPXhp8Hul4uj_rZAn5o5sHwVzZfOl4WDVVZNHTg"  
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NTE2OTM3LCJpYXQiOjE3NDY1MTY2MzcsImp0aSI6IjQ0ZTJkYTJiNzI1NDQyYzJiZGZlYTdhNzUzZjJmNzU2IiwidXNlcl9pZCI6MTR9.asE5ZjcSOUp0Hr0uCwtyOnYKxeRNFf5R34gWIIQW7wQ"  
                         },
                         body: JSON.stringify({
                             token: payload.token,
@@ -35,22 +34,26 @@
                     .then(res => res.json())
                     .then(data => {
                         console.log("Verification response:", data);
-                        alert("Payment success: " + JSON.stringify(data));
+                        alert("Payment verification: " + JSON.stringify(data));
+                    })
+                    .catch(err => {
+                        console.error("Verification error:", err);
+                        alert("Verification failed");
                     });
                 },
                 onError(error) {
-                    console.log(error);
-                    alert("Payment error");
+                    console.error("Payment error:", error);
+                    alert("Payment failed");
                 },
                 onClose() {
-                    console.log('Widget closed');
+                    console.log("Khalti widget closed");
                 }
             }
         };
 
         var checkout = new KhaltiCheckout(config);
         document.getElementById("payment-button").onclick = function () {
-            checkout.show({ amount: 1000 });
+            checkout.show({ amount: 45000 });
         };
     </script>
 </body>

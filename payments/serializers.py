@@ -15,7 +15,7 @@ class OrderSerializer(serializers.ModelSerializer):
             'id', 'client_name', 'service', 'order_date', 
             'delivery_date', 'total_amount', 'status', 'delivery_time'
         ]
-        read_only_fields = ['order_date', 'delivery_date', 'sta tus']
+        read_only_fields = ['order_date', 'delivery_date', 'status']
 
     def get_client_name(self, obj):
         return obj.client.user.username
@@ -54,9 +54,7 @@ class OrderSerializer(serializers.ModelSerializer):
             status='Pending',
             **validated_data
         )
-
-
-        
+       
 
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
