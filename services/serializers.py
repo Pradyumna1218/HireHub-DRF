@@ -17,47 +17,31 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'skills']
 
 class ServiceSerializer(serializers.ModelSerializer):
-    categories = serializers.ListField(
-        child=serializers.CharField(),
-        write_only=True,  
-    )
-    category_names = serializers.SerializerMethodField(read_only=True)  
+    categories = serializers.SerializerMethodField(read_only=True)
     freelancer = serializers.SerializerMethodField()
     skills = serializers.SerializerMethodField()
 
     class Meta:
         model = Service
         fields = [
-
-            'id', 'freelancer', 'categories', 'title', 
+            'id', 'freelancer', 'title',
             'description', 'price', 'is_active',
-            'skills', 'category_names'
-            ]
-
-    def validate_categories(self, value):
-        categories = []
-        for category_name in value:
-            try:
-                category = Category.objects.get(name=category_name)
-                categories.append(category)
-            except Category.DoesNotExist:
-                raise serializers.ValidationError(f"Category '{category_name}' does not exist.")
-        return categories
+            'skills', 'categories'
+        ]
 
     def create(self, validated_data):
-        categories = validated_data.pop('categories')
         freelancer = self.context['request'].user.freelancer
+
+        freelancer_skills = freelancer.skills.all()
+        related_categories = Category.objects.filter(skills__in=freelancer_skills).distinct()
 
         with transaction.atomic():
             service = Service.objects.create(freelancer=freelancer, **validated_data)
-            service.categories.set(categories)
+            service.categories.set(related_categories)
             service.save()
-            
+
         return service
 
-    def get_category_names(self, obj):
-        return [category.name for category in obj.categories.all()]
-    
     def get_freelancer(self, obj):
         return obj.freelancer.user.username
 
@@ -68,14 +52,12 @@ class ServiceSerializer(serializers.ModelSerializer):
 
         category_skill_ids = {skill.id for skill in category_skills}
 
-        freelancer_skills = obj.freelancer.skills.all() 
-        freelancer_skill_names = []
+        freelancer_skills = obj.freelancer.skills.all()
+        return [skill.name for skill in freelancer_skills if skill.id in category_skill_ids]
 
-        for skill in freelancer_skills:
-            if skill.id in category_skill_ids:
-                freelancer_skill_names.append(skill.name)
+    def get_categories(self, obj):
+        return [category.name for category in obj.categories.all()]
 
-        return freelancer_skill_names
 
 
 class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
