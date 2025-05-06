@@ -1,0 +1,57 @@
+<!-- templates/khalti_test.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Khalti Test Payment</title>
+    <script src="https://khalti.com/static/khalti-checkout.js"></script>
+</head>
+<body>
+    <h2>Pay with Khalti (Sandbox)</h2>
+    <button id="payment-button">Pay with Khalti</button>
+
+    <script>
+        var config = {
+            publicKey: "test_public_key_0b30ec2d58964bce8d07fc336d255208",
+            productIdentity: "1234567890",
+            productName: "Order Payment",
+            productUrl: "http://example.com/product",
+            paymentPreference: ["KHALTI"],
+
+            eventHandler: {
+                onSuccess(payload) {
+                    console.log(payload);
+
+                    fetch("/api/khalti-verify/1/", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzQ2NTA5OTI0LCJpYXQiOjE3NDY1MDk2MjQsImp0aSI6ImZlMjUyZjVmZjRkOTQyNGE5ZDAyOWIwNmJjMWQxMDg3IiwidXNlcl9pZCI6MTR9.qRlpNPXhp8Hul4uj_rZAn5o5sHwVzZfOl4WDVVZNHTg"  
+                        },
+                        body: JSON.stringify({
+                            token: payload.token,
+                            amount: payload.amount
+                        })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        console.log("Verification response:", data);
+                        alert("Payment success: " + JSON.stringify(data));
+                    });
+                },
+                onError(error) {
+                    console.log(error);
+                    alert("Payment error");
+                },
+                onClose() {
+                    console.log('Widget closed');
+                }
+            }
+        };
+
+        var checkout = new KhaltiCheckout(config);
+        document.getElementById("payment-button").onclick = function () {
+            checkout.show({ amount: 1000 });
+        };
+    </script>
+</body>
+</html>

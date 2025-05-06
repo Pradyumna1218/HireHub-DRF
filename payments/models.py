@@ -20,6 +20,10 @@ class Order(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=50, choices=status_choices, default="Pending")
 
+    def approve_order(self):
+        self.status = "In Progress"
+        self.save() 
+
 class Payment(models.Model):
     status_choices = [
         ("Pending", "Pending"),

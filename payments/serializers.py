@@ -67,3 +67,9 @@ class PaymentSerializer(serializers.ModelSerializer):
             "khalti_transaction_id", "is_verified"
         ]
         read_only_fields = ["payment_date", "is_verified", "status", "khalti_transaction_id"]
+
+    def validate_payment_amount(self, value):
+        
+        if value <= 0:
+            raise serializers.ValidationError("Payment amount must be greater than zero.")
+        return value

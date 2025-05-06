@@ -148,5 +148,8 @@ CELERY_RESULT_BACKEND = 'django-db'
 CELERY_TIMEZONE = 'Asia/Kathmandu'
 
 MONGO_URI = "mongodb://localhost:27017/"
-MONGO_DB_NAME = "hirehub_db"
+MONGO_DB_NAME = "hirehub_db"    
 MONGO_CHAT_COLLECTION = "messages"
+
+KHALTI_SECRET_KEY = '0b30ec2d58964bce8d07fc336d255208'
+KHALTI_PUBLIC_KEY = '4aee3ae5ff17465e8d467273ba5a5bba'
