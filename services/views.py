@@ -29,33 +29,35 @@ class FreelancerServiceView(APIView):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-class ClientServiceView(APIView):
-    permission_classes = [IsClient]
-
+class ClientServiceListView(APIView):
     def get(self, request):
+        # Deserialize the query parameters
         serializer = ServiceSearchSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
-        categories = serializer.validated_data.get('categories', [])
-        skills = serializer.validated_data.get('skills', [])
+        data = serializer.validated_data
+        queryset = Service.objects.filter(is_active=True)
 
-        searcher = ServiceSearcher(categories= categories, skills=skills)
-        queryset_all, queryset_by_category, queryset_by_skills = searcher.search()
+        result = {
+            "categories_result": [],
+            "skills_result": [],
+            "preferred_result": []
+        }
 
-        if queryset_all is not None:
-            all_services_serializer = ServiceSerializer(queryset_all, many = True)
-            return Response({
-                "all_services": all_services_serializer.data
-            }, status=status.HTTP_200_OK)
+        if 'categories' in data and data['categories']:
+            categories_queryset = queryset.filter(
+                categories__name__in=data['categories']
+            ).distinct()
+            result['categories_result'] = ServiceSerializer(categories_queryset, many=True).data
 
-        category_serializer = ServiceSerializer(queryset_by_category, many=True)
-        skill_serializer = ServiceSerializer(queryset_by_skills, many=True)
+        if 'skills' in data and data['skills']:
+            skills_queryset = queryset.filter(
+                freelancer__skills__name__in=data['skills']
+            ).distinct()
+            result['skills_result'] = ServiceSerializer(skills_queryset, many=True).data
 
-        return Response({
-            "category_matches": category_serializer.data,
-            "skill_matches": skill_serializer.data,
-        }, status=status.HTTP_200_OK)
-    
+        return Response(result)
+
 class FreelancerServiceDetailView(APIView):
     def get(self, request, pk):
         try:

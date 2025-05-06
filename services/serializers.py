@@ -68,10 +68,11 @@ class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Service
         fields = [
-            'id', 'freelancer', 'categories', 'title', 
+            'id', 'freelancer', 'title', 
             'description', 'price', 'is_active',
-            'skills' 
+            'skills', 'categories' 
             ]
+        read_only = ['categories', "skills"]
         
     def get_freelancer(self, obj):
         return obj.freelancer.user.username
