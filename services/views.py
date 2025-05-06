@@ -29,9 +29,8 @@ class FreelancerServiceView(APIView):
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
-class ClientServiceListView(APIView):
+class ClientServiceView(APIView):
     def get(self, request):
-        # Deserialize the query parameters
         serializer = ServiceSearchSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
 
@@ -41,7 +40,6 @@ class ClientServiceListView(APIView):
         result = {
             "categories_result": [],
             "skills_result": [],
-            "preferred_result": []
         }
 
         if 'categories' in data and data['categories']:
