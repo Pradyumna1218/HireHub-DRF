@@ -68,7 +68,7 @@ class FreelancerRegistrationSerializers(UserRegistrationSerializers):
                 skill = Skill.objects.get(name = skill_name)
                 validated_skills.append(skill)
             except Skill.DoesNotExist:
-                raise serializers.ValidationError(f"{skill} does not exists")
+                raise serializers.ValidationError(f"{skill_name} does not exists")
             
         return validated_skills
 
