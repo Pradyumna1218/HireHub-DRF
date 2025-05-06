@@ -5,15 +5,13 @@ from .serializers import (
     CategorySerializer, 
     ServiceSerializer,
     FreelancerServiceDetailSerializer,
-    ServiceSearchSerializer
+    ServiceSearchSerializer,
+    ProposalCreateSerializer
     )
 from .permissions import IsFreelancer, IsClient
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .services import ServiceSearcher
-from payments.serializers import OrderSerializer
-from payments.models import Order
-from users.models import Client
+from users.models import Freelancer
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -78,35 +76,31 @@ class FreelancerServiceDetailView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ClientServiceDetailView(APIView):
-    permission_classes = [IsClient, IsAuthenticated]
+    permission_classes = [IsClient]
 
     def get(self, request, pk):
         try:
             service = Service.objects.get(id=pk)
-
-            order = Order.objects.filter(client__user=request.user, service=service)
-
         except Service.DoesNotExist:
             return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+
         service_serializer = FreelancerServiceDetailSerializer(service)
-        orders_serializer = OrderSerializer(order, many=True)
 
         return Response({
             "service": service_serializer.data,
-            "orders": orders_serializer.data,
         }, status=status.HTTP_200_OK)
-    
-    def post(self, request, pk):
+
+    def post(self, request, pk):        
         try:
             service = Service.objects.get(id=pk)
         except Service.DoesNotExist:
             return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        data = request.data.copy()
-        data['service'] = service.id  
+        serializer = ProposalCreateSerializer(data=request.data)
 
-        serializer = OrderSerializer(data=data, context={"request": request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(service=service, client=request.user.client)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    
+        

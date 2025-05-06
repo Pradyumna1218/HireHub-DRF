@@ -1,9 +1,7 @@
 from rest_framework import serializers
-from .models import Category, Skill, Service
-from users.models import Freelancer
+from .models import Category, Skill, Service, Proposal
 from django.db import transaction
-
-
+from users.models import Freelancer
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
@@ -94,5 +92,20 @@ class ServiceSearchSerializer(serializers.Serializer):
         required = False
     )
      
+class ProposalCreateSerializer(serializers.ModelSerializer):
+    freelancer = serializers.CharField(write_only=True)
 
- 
+    class Meta:
+        model = Proposal
+        fields = ['freelancer', 'proposed_price', 'status']  # No 'service' here
+
+    def validate_freelancer(self, value):
+        try:
+            return Freelancer.objects.get(user__username=value)
+        except Freelancer.DoesNotExist:
+            raise serializers.ValidationError(f"Freelancer '{value}' not found.")
+
+    def create(self, validated_data):
+        freelancer = validated_data.pop('freelancer')
+        return Proposal.objects.create(freelancer=freelancer, **validated_data)
+
