@@ -6,39 +6,34 @@ from rest_framework import status
 from .models import Order, Payment
 from users.models import User
 from django.conf import settings
-from payments.serializers import PaymentSerializer
+from payments.serializers import PaymentSerializer, OrderSerializer
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
-class ApproveOrderView(APIView):
-    permission_classes = [IsAuthenticated]
+from services.permissions import IsClient, IsFreelancer 
 
-    def post(self, request, order_id):
-        try:
-            order = Order.objects.get(id = order_id)
-        except Order.DoesNotExist:
-            return Response(
-                {"error": "Didn't find the order"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+class FreelancerOrderListView(APIView):
+    permission_classes = [IsFreelancer]
+
+    def get(self, request):
+        freelancer = request.user.freelancer
+        order = Order.objects.filter(
+            freelancer = freelancer
+        ).select_related("service", "client")
         
-        if order.status in ["In Progress", "Completed"]:
-            return Response(
-                {"error": "Order is already in progress or completed."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        if order.service.freelancer.user != request.user:
-            return Response(
-                {"error": "You are not authorized to approve this order."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        order.approve_order()
+        serializer = OrderSerializer(order, many = True)
+        return Response(serializer.data, status= status.HTTP_200_OK)
+    
+class ClientOrderListView(APIView):
+    permission_classes = [IsAuthenticated, IsClient]
 
-        return Response(
-            {"message": "Order approved. In Progress State"},
-            status=status.HTTP_200_OK
-        )
+    def get(self, request):
+        client = request.user.client
+        orders = Order.objects.filter(
+            client=client
+        ).select_related("freelancer", "service")
 
+        serializer = OrderSerializer(orders, many=True)
+        return Response(serializer.data)
 class PaymentCreateView(APIView):
     permission_classes = [IsAuthenticated]
 

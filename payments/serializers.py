@@ -5,55 +5,27 @@ from payments.models import Order, Payment
 from users.models import Client
 
 class OrderSerializer(serializers.ModelSerializer):
-    delivery_time = serializers.CharField(write_only=True)
-    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
-    client_name = serializers.SerializerMethodField()
-
+    freelancer = serializers.SerializerMethodField()
+    client = serializers.SerializerMethodField()
+    service = serializers.SerializerMethodField()
     class Meta:
         model = Order
         fields = [
-            'id', 'client_name', 'service', 'order_date', 
-            'delivery_date', 'total_amount', 'status', 'delivery_time'
+            "id", "freelancer", "client","delivery_date", 
+            "total_amount", "service", "status" 
         ]
-        read_only_fields = ['order_date', 'delivery_date', 'status']
 
-    def get_client_name(self, obj):
+    def get_freelancer(self, obj):
+        return obj.freelancer.user.username
+    
+    def get_client(self, obj):
         return obj.client.user.username
-
-    def validate(self, attrs):
-        delivery_time_str = attrs.pop('delivery_time', None)
-        if not delivery_time_str:
-            raise serializers.ValidationError({"delivery_time": "This field is required."})
-
-        current_year = timezone.now().year
-        try:
-            full_string = f"{current_year}-{delivery_time_str}"  
-            parsed_dt = datetime.strptime(full_string, "%Y-%m-%d %H:%M")
-            attrs['delivery_date'] = timezone.make_aware(parsed_dt)
-        except ValueError:
-            raise serializers.ValidationError({
-                "delivery_time": "Expected format 'MM-DD HH:MM', e.g. '05-12 15:30'"
-            })
-
-        return attrs
-
-    def create(self, validated_data):
-        request = self.context.get('request')
-        user = request.user
-        service = validated_data.pop('service')
-
-        try:
-            client = user.client
-        except Client.DoesNotExist:
-            raise serializers.ValidationError("Client not found.")
-
-        return Order.objects.create(
-            client=client,
-            service=service,
-            order_date=timezone.now(),
-            status='Pending',
-            **validated_data
-        )
+    
+    def get_service(self, obj):
+        return {
+            "id": obj.service.id,
+            "title": obj.service.title,
+        }
        
 
 class PaymentSerializer(serializers.ModelSerializer):
