@@ -19,7 +19,7 @@ class FreelancerOrderListView(APIView):
         order = Order.objects.filter(
             freelancer = freelancer
         ).select_related("service", "client")
-        
+
         serializer = OrderSerializer(order, many = True)
         return Response(serializer.data, status= status.HTTP_200_OK)
     
@@ -34,6 +34,7 @@ class ClientOrderListView(APIView):
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
+    
 class PaymentCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
