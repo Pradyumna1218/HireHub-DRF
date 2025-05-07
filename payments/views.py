@@ -1,15 +1,15 @@
-from django.shortcuts import render
-from django.contrib.auth.decorators import login_required
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Order, Payment
-from users.models import User
+from payments.models import Order
+from .models import Payment
 from django.conf import settings
 from payments.serializers import PaymentSerializer, OrderSerializer
 from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
-from services.permissions import IsClient, IsFreelancer 
+from services.permissions import IsClient, IsFreelancer
+import requests
 
 class FreelancerOrderListView(APIView):
     permission_classes = [IsFreelancer]
@@ -17,12 +17,12 @@ class FreelancerOrderListView(APIView):
     def get(self, request):
         freelancer = request.user.freelancer
         order = Order.objects.filter(
-            freelancer = freelancer
+            freelancer=freelancer
         ).select_related("service", "client")
 
-        serializer = OrderSerializer(order, many = True)
-        return Response(serializer.data, status= status.HTTP_200_OK)
-    
+        serializer = OrderSerializer(order, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class ClientOrderListView(APIView):
     permission_classes = [IsAuthenticated, IsClient]
 
@@ -34,101 +34,125 @@ class ClientOrderListView(APIView):
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
-    
+
 class PaymentCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
         user = request.user
-        
-        try: 
-            order = Order.objects.get(id = order_id, client__user = user)
+
+        try:
+            order = Order.objects.get(id=order_id, client__user=user)
         except Order.DoesNotExist:
             return Response(
                 {"error": "Order not found for this user"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        if order.status != "In Progress":
+       
+        existing_payment = Payment.objects.filter(order=order, status="Pending").first()
+        if existing_payment:
+            if not existing_payment.khalti_token:
+                khalti_response = self.initiate_khalti_payment(order)
+                if khalti_response:
+                    existing_payment.khalti_token = khalti_response.get('pidx')
+                    existing_payment.save()
+                    serializer = PaymentSerializer(existing_payment)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+                else:
+                    return Response(
+                        {"error": "Failed to initiate Khalti payment"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            serializer = PaymentSerializer(existing_payment)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        payment = Payment.objects.create(
+            order=order,
+            user=user,
+            status="Pending",
+            payment_amount=order.total_amount,
+            payment_date=timezone.now()
+        )
+
+        khalti_response = self.initiate_khalti_payment(order)
+        if khalti_response:
+            payment.khalti_token = khalti_response.get('pidx')
+            payment.save()
+            serializer = PaymentSerializer(payment)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            payment.delete()
             return Response(
-                {"error": "Order must be approved (set to In Progress) before payment can be created."},
+                {"error": "Failed to initiate Khalti payment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        existing_payment = Payment.objects.filter(order=order, status = "Pending").first()
-        if existing_payment:
-            serializer = PaymentSerializer(existing_payment)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        
-        payment = Payment.objects.create(
-            order = order,
-            user = user,
-            payment_amount = order.total_amount,
-            status = "Pending",
-            payment_date = timezone.now()
-        )
+    def initiate_khalti_payment(self, order):
+        url = "https://dev.khalti.com/api/v2/epayment/initiate/"
+        payload = {
+            "return_url": "http://example.com/",
+            "website_url": "https://example.com/",
+            "amount": int(order.total_amount * 100),  
+            "purchase_order_id": f"Order{order.id}",
+            "purchase_order_name": "Freelancer Service Payment",
+            "customer_info": {
+                "name": order.client.user.username,
+                "email": order.client.user.email or "test@khalti.com",
+                "phone": order.client.user.phone or "9800000001"
+            }
+        }
+        headers = {
+            "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+            "Content-Type": "application/json"
+        }
 
-        serializer = PaymentSerializer(payment)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                return response.json()
+            else:
+                return None
+        except requests.exceptions.RequestException:
+            return None
 
 class KhaltiPaymentVerifyView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
-        token = request.data.get("token")
-        amount = request.data.get("amount")
+        pidx = request.data.get("token")
 
-        if not all([token, amount]):
-            return Response(
-                {"error": "Token and amount are required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        try: 
-            order = Order.objects.get(id = order_id)
+        if not pidx:
+            return Response({"error": "Missing pidx (token)"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            order = Order.objects.get(id=order_id)
         except Order.DoesNotExist:
-            return Response(
-                {"error": "Order not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        payment = Payment.objects.filter(
-            order=order,
-            payment_amount=(int(amount) / 100)
-        ).first()
+            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if not payment:
-            return Response(
-                {"error": "Payment record not found for this order and amount."},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        
-        url = "https://khalti.com/api/v2/payment/verify"
-        payload = {
-            "token": token,
-            "amount": amount
-        }
+        try:
+            payment = Payment.objects.get(order=order, khalti_token=pidx)
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment record not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        url = "https://dev.khalti.com/api/v2/epayment/lookup/"
+        payload = { "pidx": pidx }
         headers = {
-            "Authorization": f"Key {settings.KHALTI_SECRET_KEY}"
+            "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
+            "Content-Type": "application/json"
         }
 
-        response = request.post(url, data = payload, headers = headers)
-        khalti_response = response.json()
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            result = response.json()
 
-        if response.status_code == 200:
-            payment.status = "Completed"
-            payment.khalti_token = token
-            payment.khalti_transaction_id = khalti_response.get("idx")
-            payment.is_verified = True
-            payment.save()
+            if response.status_code == 200:
+                payment.khalti_transaction_id = result.get("transaction_id")
+                payment.is_verified = True
+                payment.save()
 
-            return Response({"message": "Payment verified successfully"})
-        else:
-            return Response(
-                {"error": "Khalti verification failed", "details": khalti_response},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+                return Response({"message": "Payment verified successfully."}, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Verification failed", "details": result}, status=status.HTTP_400_BAD_REQUEST)
 
-@login_required
-def khalti_test_view(request):
-    return render(request, 'payments/khalti_test.html')
+        except requests.exceptions.RequestException as e:
+            return Response({"error": "Connection error", "details": str(e)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
