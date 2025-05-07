@@ -4,7 +4,9 @@ from .views import (
     FreelancerServiceView, 
     ClientServiceView,
     FreelancerServiceDetailView,
-    ClientServiceDetailView
+    ClientServiceDetailView,
+    FreelancerProposalListView,
+    FreelancerProposalDetailView
         )
 
 urlpatterns = [
@@ -13,4 +15,6 @@ urlpatterns = [
     path('client/services/', ClientServiceView.as_view(), name='freelancer-services'),
     path('freelancer/services/<int:pk>/', FreelancerServiceDetailView.as_view(), name='freelancer-service-detail'),
     path('client/services/<int:pk>/', ClientServiceDetailView.as_view(), name='freelancer-service-detail'),
-]
+    path('freelancer/proposals/', FreelancerProposalListView.as_view(), name='freelancer-service-detail'),
+    path('freelancer/proposals/<int:pk>/', FreelancerProposalDetailView.as_view(), name='freelancer-service-detail'),
+]   

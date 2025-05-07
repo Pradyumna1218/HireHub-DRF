@@ -1,17 +1,20 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Category,Service
+from .models import Category,Service, Proposal
 from .serializers import (
     CategorySerializer, 
     ServiceSerializer,
     FreelancerServiceDetailSerializer,
     ServiceSearchSerializer,
-    ProposalCreateSerializer
+    ProposalCreateSerializer,
+    FreelancerProposalSerializer
     )
 from .permissions import IsFreelancer, IsClient
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from users.models import Freelancer
+from payments.models import Order
+from django.utils import timezone
+from datetime import timedelta
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -102,5 +105,59 @@ class ClientServiceDetailView(APIView):
         serializer.save(service=service, client=request.user.client)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    
+class FreelancerProposalListView(APIView):
+    permission_classes = [IsFreelancer]
+
+    def get(self, request):
+        freelancer = request.user.freelancer
+        proposals = Proposal.objects.filter(
+            freelancer = freelancer).select_related("service", "client")
         
+        serializer = FreelancerProposalSerializer(proposals, many = True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FreelancerProposalDetailView(APIView):
+    permission_classes = [IsFreelancer]
+
+    def get(self, request, pk):
+        freelancer = request.user.freelancer
+        try:
+            proposal = Proposal.objects.select_related('service', 'client').get(id=pk, freelancer=freelancer)
+        except Proposal.DoesNotExist:
+            return Response({"error": "Proposal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = FreelancerProposalSerializer(proposal)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    
+    def post(self, request, pk):
+        freelancer = request.user.freelancer
+        try:
+            proposal = Proposal.objects.get(id=pk, freelancer=freelancer)
+        except Proposal.DoesNotExist:
+            return Response({"error": "Proposal not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        new_status = request.data.get("status")
+        if new_status not in ["accepted", "rejected"]:
+            return Response(
+                {"error": "Status must be either 'accepted' or 'rejected'."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        proposal.status = new_status
+        proposal.save()
+
+        if new_status == "accepted":
+            if hasattr(proposal, 'order'):
+                return Response({"message": "Order already exists for this proposal."}, status=status.HTTP_400_BAD_REQUEST)
+
+            Order.objects.create(
+                proposal=proposal,
+                client=proposal.client,
+                freelancer=proposal.freelancer,
+                service=proposal.service,
+                total_amount=proposal.proposed_price,
+                delivery_date=timezone.now() + timedelta(days=7)  
+            )
+
+        return Response({"message": f"Proposal {new_status}."}, status=status.HTTP_200_OK)

@@ -97,7 +97,7 @@ class ProposalCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Proposal
-        fields = ['freelancer', 'proposed_price', 'status']  # No 'service' here
+        fields = ['freelancer', 'proposed_price', 'status']  
 
     def validate_freelancer(self, value):
         try:
@@ -109,3 +109,24 @@ class ProposalCreateSerializer(serializers.ModelSerializer):
         freelancer = validated_data.pop('freelancer')
         return Proposal.objects.create(freelancer=freelancer, **validated_data)
 
+
+class FreelancerProposalSerializer(serializers.ModelSerializer):
+    client = serializers.SerializerMethodField()
+    service = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Proposal
+        fields = [
+            "id", 'client', 'service',
+            'proposal_date', 'proposed_price',"status" 
+        ]
+    
+    def get_client(self, obj):
+        return obj.client.user.username
+    
+    def get_service(self, obj):
+        return{
+            "title": obj.service.title,
+            "description": obj.service.description,
+            "price": str(obj.service.price),
+        }

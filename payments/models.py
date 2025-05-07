@@ -1,6 +1,6 @@
 from django.db import models
-from users.models import Client, User
-from services.models import Service
+from users.models import Client, User, Freelancer
+from services.models import Service, Proposal
 from django.utils import timezone
 
 
@@ -14,15 +14,13 @@ class Order(models.Model):
 
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name= 'orders')
     service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name= 'orders')
+    proposal = models.OneToOneField(Proposal, on_delete=models.CASCADE, related_name='order', null=True, blank=True)
+    freelancer = models.ForeignKey(Freelancer, on_delete=models.CASCADE, null=True, blank=True)
     
     order_date = models.DateTimeField(default=timezone.now)
     delivery_date = models.DateTimeField()
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=50, choices=status_choices, default="Pending")
-
-    def approve_order(self):
-        self.status = "In Progress"
-        self.save() 
+    status = models.CharField(max_length=50, choices=status_choices, default="Pending") 
 
 class Payment(models.Model):
     status_choices = [
