@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     'services',
     'payments',
     'django_celery_results',
+    'channels',
+    'communications',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -76,6 +78,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'hirehub_project.wsgi.application'
+ASGI_APPLICATION = 'hirehub_project.asgi.application'
 
 
 # Database
@@ -153,3 +156,10 @@ MONGO_CHAT_COLLECTION = "messages"
 
 KHALTI_SECRET_KEY = os.getenv('KHALTI_SECRET_KEY')
 KHALTI_PUBLIC_KEY = os.getenv('KHALTI_PUBLIC_KEY')
+
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
