@@ -34,7 +34,6 @@ class ClientOrderListView(APIView):
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
-
 class PaymentCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -48,7 +47,7 @@ class PaymentCreateView(APIView):
                 {"error": "Order not found for this user"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-       
+
         existing_payment = Payment.objects.filter(order=order, status="Pending").first()
         if existing_payment:
             if not existing_payment.khalti_token:
@@ -78,6 +77,10 @@ class PaymentCreateView(APIView):
         if khalti_response:
             payment.khalti_token = khalti_response.get('pidx')
             payment.save()
+
+            order.status = "In Progress"
+            order.save()
+
             serializer = PaymentSerializer(payment)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         else:
@@ -149,6 +152,9 @@ class KhaltiPaymentVerifyView(APIView):
                 payment.khalti_transaction_id = result.get("transaction_id")
                 payment.is_verified = True
                 payment.save()
+
+                order.status = "Completed"
+                order.save()
 
                 return Response({"message": "Payment verified successfully."}, status=status.HTTP_200_OK)
             else:
