@@ -37,10 +37,6 @@ class Proposal(models.Model):
         ('rejected', 'Rejected'),
     ]
 
-    def get_models(self):
-        from users.models import Freelancer, Client  
-        return Freelancer, Client
-
     freelancer = models.ForeignKey('users.Freelancer', on_delete=models.CASCADE, related_name="freeproposal")
     client = models.ForeignKey('users.Client', on_delete=models.CASCADE, related_name="cliproposal")
     service = models.ForeignKey('services.Service', on_delete=models.CASCADE, related_name='serproposal')

@@ -15,12 +15,13 @@ from rest_framework.permissions import IsAuthenticated
 from payments.models import Order
 from django.utils import timezone
 from datetime import timedelta
-
+from django.shortcuts import get_object_or_404
 class CategoryListView(APIView):
     def get(self, request):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
+    
 class FreelancerServiceView(APIView):
     permission_classes = [IsFreelancer, IsAuthenticated]
 
@@ -38,54 +39,49 @@ class ClientServiceView(APIView):
         data = serializer.validated_data
         queryset = Service.objects.filter(is_active=True)
 
+        if not data.get('categories') and not data.get('skills'):
+            return Response(ServiceSerializer(queryset, many=True).data)
+        
         result = {
             "categories_result": [],
             "skills_result": [],
         }
 
-        if 'categories' in data and data['categories']:
+        if 'categories' in data:
             categories_queryset = queryset.filter(
                 categories__name__in=data['categories']
-            ).distinct()
+            )
             result['categories_result'] = ServiceSerializer(categories_queryset, many=True).data
 
-        if 'skills' in data and data['skills']:
+        if 'skills' in data:
             skills_queryset = queryset.filter(
                 freelancer__skills__name__in=data['skills']
-            ).distinct()
+            )
             result['skills_result'] = ServiceSerializer(skills_queryset, many=True).data
 
         return Response(result)
 
 class FreelancerServiceDetailView(APIView):
     def get(self, request, pk):
-        try:
-            service = Service.objects.get(id=pk, freelancer__user=request.user)
-        except Service.DoesNotExist:
-            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        serializer = FreelancerServiceDetailSerializer(service)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        service = get_object_or_404(Service, id=pk, freelancer__user=request.user)
+        return Response(
+            ServiceSerializer(service).data, 
+            status=status.HTTP_200_OK
+        )
     
     def patch(self, request, pk):
-        try:
-            service = Service.objects.get(id = pk, freelancer__user = request.user)
-        except Service.DoesNotExist:
-            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
-        
+        service = get_object_or_404(Service, id=pk, freelancer__user=request.user)
         serializer = FreelancerServiceDetailSerializer(service, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
 
 class ClientServiceDetailView(APIView):
     permission_classes = [IsClient]
 
     def get(self, request, pk):
-        try:
-            service = Service.objects.get(id=pk)
-        except Service.DoesNotExist:
-            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
+        service = get_object_or_404(Service, id=pk)
 
         service_serializer = FreelancerServiceDetailSerializer(service)
 
@@ -94,16 +90,13 @@ class ClientServiceDetailView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request, pk):        
-        try:
-            service = Service.objects.get(id=pk)
-        except Service.DoesNotExist:
-            return Response({"error": "Service not found."}, status=status.HTTP_404_NOT_FOUND)
+        service = get_object_or_404(Service, id=pk)
 
         serializer = ProposalCreateSerializer(data=request.data)
-
         serializer.is_valid(raise_exception=True)
         serializer.save(service=service, client=request.user.client)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 
 class FreelancerProposalListView(APIView):
     permission_classes = [IsFreelancer]
@@ -122,20 +115,16 @@ class FreelancerProposalDetailView(APIView):
 
     def get(self, request, pk):
         freelancer = request.user.freelancer
-        try:
-            proposal = Proposal.objects.select_related('service', 'client').get(id=pk, freelancer=freelancer)
-        except Proposal.DoesNotExist:
-            return Response({"error": "Proposal not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        proposal = get_object_or_404(
+            Proposal.objects.select_related('service', 'client'),
+            id=pk, freelancer=freelancer
+        )
         serializer = FreelancerProposalSerializer(proposal)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request, pk):
         freelancer = request.user.freelancer
-        try:
-            proposal = Proposal.objects.get(id=pk, freelancer=freelancer)
-        except Proposal.DoesNotExist:
-            return Response({"error": "Proposal not found."}, status=status.HTTP_404_NOT_FOUND)
+        proposal = get_object_or_404(Proposal, id=pk, freelancer=freelancer)
 
         new_status = request.data.get("status")
         if new_status not in ["accepted", "rejected"]:
@@ -149,7 +138,10 @@ class FreelancerProposalDetailView(APIView):
 
         if new_status == "accepted":
             if hasattr(proposal, 'order'):
-                return Response({"message": "Order already exists for this proposal."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"message": "Order already exists for this proposal."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             Order.objects.create(
                 proposal=proposal,
@@ -157,7 +149,7 @@ class FreelancerProposalDetailView(APIView):
                 freelancer=proposal.freelancer,
                 service=proposal.service,
                 total_amount=proposal.proposed_price,
-                delivery_date=timezone.now() + timedelta(days=7)  
+                delivery_date=timezone.now() + timedelta(days=7)
             )
 
         return Response({"message": f"Proposal {new_status}."}, status=status.HTTP_200_OK)

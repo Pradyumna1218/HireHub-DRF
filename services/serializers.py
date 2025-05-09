@@ -31,12 +31,14 @@ class ServiceSerializer(serializers.ModelSerializer):
         freelancer = self.context['request'].user.freelancer
 
         freelancer_skills = freelancer.skills.all()
-        related_categories = Category.objects.filter(skills__in=freelancer_skills).distinct()
+        related_categories = Category.objects.filter(skills__in=freelancer_skills)
 
         with transaction.atomic():
-            service = Service.objects.create(freelancer=freelancer, **validated_data)
+            service = Service.objects.create(
+                freelancer=freelancer, 
+                **validated_data
+            )
             service.categories.set(related_categories)
-            service.save()
 
         return service
 
@@ -44,14 +46,8 @@ class ServiceSerializer(serializers.ModelSerializer):
         return obj.freelancer.user.username
 
     def get_skills(self, obj):
-        category_skills = []
-        for category in obj.categories.all():
-            category_skills += list(category.skills.all())
-
-        category_skill_ids = {skill.id for skill in category_skills}
-
-        freelancer_skills = obj.freelancer.skills.all()
-        return [skill.name for skill in freelancer_skills if skill.id in category_skill_ids]
+        skills = obj.freelancer.skills.all()
+        return [skill.name for skill in skills]
 
     def get_categories(self, obj):
         return [category.name for category in obj.categories.all()]
