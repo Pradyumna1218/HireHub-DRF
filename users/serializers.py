@@ -158,7 +158,7 @@ class ClientProfileSerializer(serializers.ModelSerializer):
         invalid_categories = category_set - found_names
 
         if invalid_categories:
-            raise serializers.ValidationError(f"Invalid categories: {', '.join(invalid_categories)}")
+            raise serializers.ValidationError(f"Invalid categories")
 
         return list(found_categories)
     
