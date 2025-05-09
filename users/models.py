@@ -25,7 +25,7 @@ class Freelancer(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, primary_key=True)
     profile = models.TextField(blank=True, null= True)
     skills = models.ManyToManyField(Skill, blank=True) 
-    rating = models.CharField(max_length=255, blank=True, null=True)
+    rating = models.CharField(max_length=255, blank=True, null=True, default=0.0)
     categories = models.ManyToManyField(Category, blank=True)
 
     def __str__(self):

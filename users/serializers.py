@@ -12,32 +12,21 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "phone", "password"]
     
-    def validate_skills(self, value):
-        invalid_skills = []
-        for skill_name in value:
-            if not Skill.objects.filter(name=skill_name).exists():
-                invalid_skills.append(skill_name)
-
-        if invalid_skills:
-            raise serializers.ValidationError(f"The following skills do not exist: {', '.join(invalid_skills)}")
-
-        return value
-    
     def validate_password(self, password):
-        # if len(password) < 8:
-        #     raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if len(password) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
 
-        # has_lower = any(c.islower() for c in password)
-        # has_upper = any(c.isupper() for c in password)
-        # has_digit = any(c.isdigit() for c in password)
-        # has_special = any(c in "!@#$%^&*()-+" for c in password)
-        # no_adjacent_duplicates = all(password[i] != password[i + 1] for i in range(len(password) - 1))
+        has_lower = any(c.islower() for c in password)
+        has_upper = any(c.isupper() for c in password)
+        has_digit = any(c.isdigit() for c in password)
+        has_special = any(c in "!@#$%^&*()-+" for c in password)
+        no_adjacent_duplicates = all(password[i] != password[i + 1] for i in range(len(password) - 1))
 
-        # if not all([has_lower, has_upper, has_digit, has_special, no_adjacent_duplicates]):
-        #     raise serializers.ValidationError(
-        #         "Password must contain at least one lowercase, one uppercase, one digit, "
-        #         "one special character (!@#$%^&*()-+), and no adjacent repeated characters."
-        #     )
+        if not all([has_lower, has_upper, has_digit, has_special, no_adjacent_duplicates]):
+            raise serializers.ValidationError(
+                "Password must contain at least one lowercase, one uppercase, one digit, "
+                "one special character (!@#$%^&*()-+), and no adjacent repeated characters."
+            )   
 
         return password
     
@@ -51,81 +40,64 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
 class FreelancerRegistrationSerializers(UserRegistrationSerializers):
     profile = serializers.CharField(required=False, allow_blank=True)
     skills = serializers.ListField(child=serializers.CharField(), write_only=True)
-    rating = serializers.CharField(required=False, allow_blank=True, default = '0')
-   
 
     class Meta(UserRegistrationSerializers.Meta):
-        fields = UserRegistrationSerializers.Meta.fields + [ 
-                  'profile', 'skills', 'rating'
-                  ]
-        read_only = ["rating"]
+        fields = UserRegistrationSerializers.Meta.fields + ['profile', 'skills']
+        read_only_fields = ["rating"]
 
     def validate_skills(self, skill_list):
-        validated_skills = []
+        found_skills = Skill.objects.filter(name__in=skill_list)
+        skill_set = set(skill_list)
+        found_names = {skill.name for skill in found_skills}
 
-        for skill_name in skill_list:
-            try:
-                skill = Skill.objects.get(name = skill_name)
-                validated_skills.append(skill)
-            except Skill.DoesNotExist:
-                raise serializers.ValidationError(f"{skill_name} does not exists")
-            
-        return validated_skills
+        invalid_skills = skill_set - found_names
 
+        if invalid_skills:
+            raise serializers.ValidationError(f"Invalid skill(s): {', '.join(invalid_skills)}")
+        return list(found_skills)
 
     def create(self, validated_data):
         profile = validated_data.pop('profile', '')
         skills = validated_data.pop('skills', [])
-        rating = validated_data.pop('rating', '')
+        
+        with transaction.atomic():
+            user = super().create(validated_data)
+            freelancer = Freelancer.objects.create(
+                user=user,
+                profile=profile,
+            )
+            freelancer.skills.set(skills)
 
-        try:
-            with transaction.atomic():
-                user = super().create(validated_data)
-
-                freelancer = Freelancer.objects.create(
-                    user=user,
-                    profile=profile,
-                    rating=rating
-                )
-                freelancer.skills.set(skills)
-                return user  
-
-        except (IntegrityError, serializers.ValidationError) as e:
-            raise serializers.ValidationError({"detail": f"Freelancer registration failed: {str(e)}"})
-
+        return freelancer  
+        
 
 class ClientRegistrationSerializer(UserRegistrationSerializers):
-    preferred_categories = serializers.ListField(required=False, child = serializers.CharField())
+    preferred_categories = serializers.ListField(required=False, child=serializers.CharField())
+
     class Meta(UserRegistrationSerializers.Meta):
         fields = UserRegistrationSerializers.Meta.fields + ['preferred_categories']
 
     def validate_preferred_categories(self, value):
-        invalid_categories = []
-        for category_name in value:
-            if not Category.objects.filter(name=category_name).exists():
-                invalid_categories.append(category_name)
+        categories = Category.objects.filter(name__in=value)
+        category_set = set(value)
+        category_names = {category.name for category in categories}
 
-        if invalid_categories:
-            raise serializers.ValidationError(f"The following categories do not exist: {', '.join(invalid_categories)}")
+        invalid_category = category_set - category_names
 
-        return value
+        if invalid_category:
+            raise serializers.ValidationError(f"Invalid categories: {', '.join(invalid_category)}")
+
+        return list(categories)
 
     def create(self, validated_data):
-        preferred_categories_name = validated_data.pop('preferred_categories', [])
+        preferred_categories = validated_data.pop('preferred_categories', [])
         
-        try:
-            with transaction.atomic():
-                user = super().create(validated_data)
-                client = Client.objects.create(user=user)
+        with transaction.atomic():
+            user = super().create(validated_data)
+            client = Client.objects.create(user=user)
+            client.preferred_categories.set(preferred_categories)  
 
-                for category_name in preferred_categories_name:
-                    category, _ = Category.objects.get_or_create(name=category_name)
-                    client.preferred_categories.add(category)
-
-                return user
-
-        except(IntegrityError, serializers.ValidationError) as e:
-            raise serializers.ValidationError({"detail": f"Client registration failed: {str(e)}"})
+        return client
 
     
 class SkillSerializer(serializers.ModelSerializer):
@@ -153,43 +125,16 @@ class FreelancerProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'phone', 'profile', 
                   'categories','skills', 'rating'
                   ]
-
-    def validate_skills(self, value):
-        """Validate that all skills exist in database."""
-
-        validated_skills = []
-        for skill_name in value:
-            try:
-                skill_instance = Skill.objects.get(name=skill_name)
-                validated_skills.append(skill_instance)
-            except Skill.DoesNotExist:
-                raise serializers.ValidationError(f"Skill '{skill_name}' does not exist.")
-        
-        return validated_skills
-    
-    def validate_categories(self, value):
-        """Validate that all categories exist in the database."""
-
-        validated_categories = []
-        for category_name in value:
-            try:
-                category_instance = Category.objects.get(name=category_name)
-                validated_categories.append(category_instance)
-            except Category.DoesNotExist:
-                raise serializers.ValidationError(f"Category '{category_name}' does not exist.")
-        
-        return validated_categories
     
     def get_categories(self, obj):
-        category_names = set()
-        for skill in obj.skills.all():
-            if skill.category:
-                category_names.add(skill.category.name)
-        return sorted(list(category_names))
-    
+        """Fetch unique categories for the freelancer's skills."""
+        return sorted(
+            {skill.category.name for skill in obj.skills.all() if skill.category}
+        )
+
     def get_skills(self, obj):
-        skill_names = set(skill.name for skill in obj.skills.all())
-        return sorted(list(skill_names))
+        """Fetch unique skills names for the freelancer."""
+        return sorted({skill.name for skill in obj.skills.all()})
     
 
 class ClientProfileSerializer(serializers.ModelSerializer):
@@ -206,9 +151,16 @@ class ClientProfileSerializer(serializers.ModelSerializer):
                   ]
     
     def validate_preferred_categories(self, value):
-        if not all(Category.objects.filter(id=category.id).exists() for category in value):
-            raise serializers.ValidationError("One or more categories are invalid.")
-        return value
+        found_categories = Category.objects.filter(name__in=value)
+        category_set = set(value)
+        found_names = {category.name for category in found_categories}
+
+        invalid_categories = category_set - found_names
+
+        if invalid_categories:
+            raise serializers.ValidationError(f"Invalid categories: {', '.join(invalid_categories)}")
+
+        return list(found_categories)
     
     def get_preferred_categories(self, obj):
         return [category.name for category in obj.preferred_categories.all()]
