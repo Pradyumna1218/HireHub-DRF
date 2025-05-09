@@ -13,7 +13,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from .models import User, Freelancer, Client
 from django.core.signing import TimestampSigner
 from .tasks import send_password_reset_email
-
+from django.shortcuts import get_object_or_404
 
 signer = TimestampSigner()
 
@@ -41,19 +41,13 @@ class FreelancerProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        try:
-            freelancer = Freelancer.objects.get(user=request.user)
-            serializer = FreelancerProfileSerializer(freelancer)
-            return Response(serializer.data)
-        except Freelancer.DoesNotExist:
-            return Response({"detail": "Freelancer profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        freelancer = get_object_or_404(Freelancer, user = request.user)
+        serializer = FreelancerProfileSerializer(freelancer)
+        return Response(serializer.data)
+        
     
     def patch(self, request):
-        try:
-            freelancer = Freelancer.objects.get(user=request.user)
-        except Freelancer.DoesNotExist:
-            return Response({"detail": "Freelancer profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        freelancer = get_object_or_404(Freelancer, user = request.user)
         serializer = FreelancerProfileSerializer(freelancer, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -64,20 +58,14 @@ class ClientProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        try:
-            client = Client.objects.get(user= request.user)
-            serializer = ClientProfileSerializer(client)
-            return Response(serializer.data)
-        except Client.DoesNotExist:
-            return Response({"detail": "Client profile not found."}, status=status.HTTP_404_NOT_FOUND) 
+        client = get_object_or_404(Client, user = request.user)
+        serializer = ClientProfileSerializer(client)
+        return Response(serializer.data)
+    
 
     def patch(self, request):
-        try:
-            freelancer = Client.objects.get(user=request.user)
-        except Client.DoesNotExist:
-            return Response({"detail": "Freelancer profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = ClientProfileSerializer(freelancer, data=request.data, partial=True)
+        client = get_object_or_404(Client, user = request.user)
+        serializer = ClientProfileSerializer(client, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -91,10 +79,7 @@ class PasswordResetRequestView(APIView):
         serializer.is_valid(raise_exception=True)
         
         email = serializer.validated_data['email']
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({"error": "User with this email doesn't exist."}, status=status.HTTP_404_NOT_FOUND)
+        user = get_object_or_404(User, email=email)
 
         token = signer.sign(user.pk)
         reset_link = f"http://localhost:8000/reset/?token={token}"
