@@ -2,7 +2,7 @@ import os
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hirehub_project.settings')
 
 import django
-django.setup()  # 🛠️ Required before anything else that uses Django ORM
+django.setup()  
 
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
