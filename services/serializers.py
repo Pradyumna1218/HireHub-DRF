@@ -53,7 +53,6 @@ class ServiceSerializer(serializers.ModelSerializer):
         return [category.name for category in obj.categories.all()]
 
 
-
 class FreelancerServiceDetailSerializer(serializers.ModelSerializer):
     freelancer = serializers.SerializerMethodField()
     categories = serializers.SerializerMethodField()
@@ -96,10 +95,13 @@ class ProposalCreateSerializer(serializers.ModelSerializer):
         fields = ['freelancer', 'proposed_price', 'status']  
 
     def validate_freelancer(self, value):
-        try:
-            return Freelancer.objects.get(user__username=value)
-        except Freelancer.DoesNotExist:
+        freelancer = Freelancer.objects.filter(
+            user__username=value
+        ).first()
+        if not freelancer:
             raise serializers.ValidationError(f"Freelancer '{value}' not found.")
+
+        return freelancer
 
     def create(self, validated_data):
         freelancer = validated_data.pop('freelancer')
