@@ -18,5 +18,4 @@ def delete_expired_tokens():
     expiration_time = timezone.now() - timezone.timedelta(minutes=30)
     PasswordResetToken.objects.filter(
         created_at__lt=expiration_time, 
-        used=False
     ).delete()

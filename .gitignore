@@ -23,3 +23,7 @@ Thumbs.db
 # .gitignore
 .env
 
+# Celery beat schedule files
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal

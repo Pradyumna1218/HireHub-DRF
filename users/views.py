@@ -122,12 +122,13 @@ class PasswordResetView(APIView):
                 {"error": "Token has expired."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
         data = request.data.copy()
         data['token'] = token
         serializer = PasswordResetSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        
+
         token_obj.used = True
         token_obj.save()
 

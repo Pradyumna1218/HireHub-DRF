@@ -164,3 +164,11 @@ CHANNEL_LAYERS = {
         "BACKEND": "channels.layers.InMemoryChannelLayer",
     },
 }
+
+from mongoengine import connect
+
+connect(
+    db='hirehub_chat',
+    host='localhost',
+    port=27017
+)
