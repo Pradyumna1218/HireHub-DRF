@@ -1,4 +1,3 @@
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -24,7 +23,7 @@ class FreelancerOrderListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ClientOrderListView(APIView):
-    permission_classes = [IsAuthenticated, IsClient]
+    permission_classes = [IsClient]
 
     def get(self, request):
         client = request.user.client
@@ -35,7 +34,7 @@ class ClientOrderListView(APIView):
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
 class PaymentCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsClient]
 
     def post(self, request, order_id):
         user = request.user

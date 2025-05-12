@@ -1,8 +1,5 @@
 from rest_framework import serializers
-from datetime import datetime
-from django.utils import timezone
 from payments.models import Order, Payment
-from users.models import Client
 
 class OrderSerializer(serializers.ModelSerializer):
     freelancer = serializers.SerializerMethodField()
@@ -29,17 +26,10 @@ class OrderSerializer(serializers.ModelSerializer):
        
 
 class PaymentSerializer(serializers.ModelSerializer):
+    order = OrderSerializer()
     class Meta:
         model = Payment
         fields = [
-            'id', 'order', 'user','payment_amount', 
-            'payment_date', 'status',"khalti_token", 
-            "khalti_transaction_id", "is_verified"
+            'id', 'order', 'user', 'status', 'payment_amount', 'payment_date', 
+            'khalti_token', 'khalti_transaction_id', 'is_verified'
         ]
-        read_only_fields = ["payment_date", "is_verified", "status", "khalti_transaction_id"]
-
-    def validate_payment_amount(self, value):
-        
-        if value <= 0:
-            raise serializers.ValidationError("Payment amount must be greater than zero.")
-        return value
