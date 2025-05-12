@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django_celery_results',
     'channels',
     'communications',
+    'django_celery_beat',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
