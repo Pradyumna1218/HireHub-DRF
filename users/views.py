@@ -10,10 +10,12 @@ from .serializers import (
     PasswordResetSerializer
 )
 from rest_framework.permissions import AllowAny, IsAuthenticated
-from .models import User, Freelancer, Client
+from .models import User, Freelancer, Client, PasswordResetToken
 from django.core.signing import TimestampSigner
 from .tasks import send_password_reset_email
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from datetime import timedelta
 
 signer = TimestampSigner()
 
@@ -84,24 +86,55 @@ class PasswordResetRequestView(APIView):
         token = signer.sign(user.pk)
         reset_link = f"http://localhost:8000/reset/?token={token}"
 
+        reset_token = PasswordResetToken.objects.create(
+            user=user,
+            token=token,
+            used=False  
+        )
+
         send_password_reset_email.delay(email, reset_link)
 
         print(f"Reset link for {email}: {reset_link}")
 
-        return Response({"message": "Password reset link sent. Check your email."}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": "Password reset link sent. Check your email."}, 
+            status=status.HTTP_200_OK
+        )
 
 
 class PasswordResetView(APIView):
     def post(self, request):
         token = request.query_params.get('token')
         if not token:
-            return Response({"error": "Missing token in URL."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Missing token in URL."}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
+        token_obj = get_object_or_404(
+            PasswordResetToken,
+            token=token,
+            used=False  
+        )
+
+        if token_obj.created_at < timezone.now() - timedelta(hours=1):
+            return Response(
+                {"error": "Token has expired."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         data = request.data.copy()
         data['token'] = token
-
         serializer = PasswordResetSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
+        
+        token_obj.used = True
+        token_obj.save()
+
+
+        return Response(
+            {"message": "Password reset successful."},
+            status=status.HTTP_200_OK
+        )
+
         
