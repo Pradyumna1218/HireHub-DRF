@@ -29,13 +29,15 @@ class ChatConsumer(AsyncConsumer):
             return
 
         self.receiver = self.scope['url_route']['kwargs']['username']
-        self.room_group_name = f'chat_{self.sender.username}_{self.receiver}'
+
+        usernames = sorted([self.sender.username, self.receiver])
+        self.room_group_name = f"chat_{usernames[0]}_{usernames[1]}"
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.send({'type': 'websocket.accept'})
 
     async def websocket_disconnect(self, event):
-        if self.room_group_name:
+        if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def websocket_receive(self, event):
