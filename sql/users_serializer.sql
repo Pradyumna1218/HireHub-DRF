@@ -1,3 +1,5 @@
+--REGISTER
+
 -- User.objects.all()
 select "users_user"."id", "users_user"."password", "users_user"."username", "users_user"."email", "users_user"."phone" from "users_user" 
 
@@ -15,7 +17,7 @@ select "users_user"."id", "users_user"."password", "users_user"."username", "use
 
  --Freelancer.objects.create(user = user, profile = profile)
  insert into "users_freelancer" 
- ("freelancer_user", "freelancer_profile","rating")
+ ("users_freelancer"."id", "users_freelancer"."profile","users_freelancer"."rating")
  values 
  (user_id,'profile_string', 0.0)
 
@@ -53,6 +55,44 @@ values
 (client_id3, preferred_categories3)
 
 
+-- PROFILE
 
+-- freelancer get_categories
+-- obj.skills.all()
+select "services_skill"."id","services_skill"."name","services_skill"."category_id"
+from "services_skill"
+Join "users_freelancer_skills"
+On "services_skill"."id" = "users_freelancer_skills"."skill_id" 
 
+--skill.category.name if skill.category
+select "services_category"."id", "services_category"."name"
+from "services_category" 
+where "services_category"."id" = id
 
+-- freelancer get_skills
+select "services_skill"."id", "services.skill".'name', "services_skill"."category_id"
+from "services_skill"
+join "users_freelancer_skills" 
+on "users_freelanacer_skills"."skill_id" = "services_skill"."id"
+
+--client profile
+-- get_categories
+
+select "users_client_preferred_categories"."id", "users_client_preferred_categories"."preferred_categories"
+from "users_client_preferred_categories"
+join "users_client"
+on "users_client"."id" = "users_client_preferred_categories"."id"
+
+--password
+--User.objects.filter(email = email).exists
+
+select exists (
+    select *
+    from "users_user"
+    where "users_user"."email" = email
+) 
+
+-- User.objects.get(pk = user_id)
+select "users_user"."id", "users_user"."password", "users_user"."username", "users_user"."email", "users_user"."phone"
+from "users_user"
+where "users_user"."id" = id
