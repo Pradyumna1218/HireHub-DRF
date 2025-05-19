@@ -31,6 +31,33 @@ select "services_category"."name"
 from "services_category"
 join "services_service_categories"
 on "services_category"."id" = "services_service_categories"."category_id"
-where services = service
+where "services.service"."id" = id
+
+-- get_client obj.client.user.username
+select "users_user"."username"
+from "users_user"
+join "users_client" on "users_client"."user_id" = "users_user"."id"
+join "services_proposal" on "services_proposal"."client_id" = "users_client"."user_id"
+where "services_proposal".id = id
+
+-- get_service
+
+--obj.service.title
+select "services_service"."title"
+from "services_service"
+join "services_proposal" 
+on "services_proposal"."service_id" = "services_service"."id"
+
+--obj.service.description
+select "services_service"."description"
+from "services_service"
+join "services_proposal" 
+on "services_proposal"."service_id" = "services_service"."id"
+
+--obj.service.price
+select "services_service"."price"
+from "services_service"
+join "services_proposal" 
+on "services_proposal"."service_id" = "services_service"."id"
 
 
