@@ -27,9 +27,10 @@ join "users_freelancer_skills" on "users_freelancer_skills"."skill_id" = "servic
 where "users_freelancer_skills"."freelancer_id" = 1
 
 -- get_categories category.name obj.categories.all()
-
 select "services_category"."name"
 from "services_category"
 join "services_service_categories"
 on "services_category"."id" = "services_service_categories"."category_id"
+where services = service
+
 
