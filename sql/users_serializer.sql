@@ -50,8 +50,8 @@ where "client_id" = client_id
 insert into "users_client_preferred_categories"
 ("client_id", "preferred_categories")
 values
-(client_id1, preferred_categories1)
-(client_id2, preferred_categories2)
+(client_id1, preferred_categories1),
+(client_id2, preferred_categories2),
 (client_id3, preferred_categories3)
 
 
@@ -95,4 +95,4 @@ select exists (
 -- User.objects.get(pk = user_id)
 select "users_user"."id", "users_user"."password", "users_user"."username", "users_user"."email", "users_user"."phone"
 from "users_user"
-where "users_user"."id" = id
+where "users_user"."id" = user_id
