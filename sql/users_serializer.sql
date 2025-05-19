@@ -4,11 +4,11 @@
 select "users_user"."id", "users_user"."password", "users_user"."username", "users_user"."email", "users_user"."phone" from "users_user" 
 
 -- Freelancer.objects.all()
- select "users_freelancer"."user_id", "users_freelancer"."profile", "users_freelancer"."rating"
+ select "users_freelancer"."id", "users_freelancer"."user_id", "users_freelancer"."profile", "users_freelancer"."rating"
  from "users_freelancer"
 
  -- Client.objects.all()
- select "users_client"."user_id" from "users_client"
+ select "users_client"."user_id" "users_client"."id", "users_client"."preferrred_categories" from "users_client"
 
  --Skill.objects.filter(name__in = skill_list)
  select "services_skill"."id", "services_skill"."category_id", "services_skill"."name" 
@@ -19,7 +19,7 @@ select "users_user"."id", "users_user"."password", "users_user"."username", "use
  insert into "users_freelancer" 
  ("users_freelancer"."id", "users_freelancer"."profile","users_freelancer"."rating")
  values 
- (user_id,'profile_string', 0.0)
+ (id,'profile_string', 0.0)
 
  --freelancer_skills.set(skills)
  delete from "users_freelancer_skills"
@@ -28,8 +28,8 @@ select "users_user"."id", "users_user"."password", "users_user"."username", "use
  insert into "users_freelancer_skills"
  ("freelancer_id", "skill_id")
  values
- (freelancerid, skill id1)
- (freelancerid, skill id2)
+ (freelancerid, skill id1),
+ (freelancerid, skill id2),
  (freelancerid, skill id3)
 
  -- Category.objects.filter(name__in = value)
@@ -65,7 +65,7 @@ Join "users_freelancer_skills"
 On "services_skill"."id" = "users_freelancer_skills"."skill_id" 
 
 --skill.category.name if skill.category
-select "services_category"."id", "services_category"."name"
+select "services_category"."name"
 from "services_category" 
 where "services_category"."id" = id
 
@@ -78,7 +78,7 @@ on "users_freelanacer_skills"."skill_id" = "services_skill"."id"
 --client profile
 -- get_categories
 
-select "users_client_preferred_categories"."id", "users_client_preferred_categories"."preferred_categories"
+select "users_client_preferred_categories"."preferred_categories"
 from "users_client_preferred_categories"
 join "users_client"
 on "users_client"."id" = "users_client_preferred_categories"."id"
