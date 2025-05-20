@@ -18,7 +18,11 @@ class FreelancerOrderListView(APIView):
         freelancer = request.user.freelancer
         order = Order.objects.filter(
             freelancer=freelancer
-        ).select_related("service", "client")
+        ).select_related(
+            "service", 
+            "client__user", 
+            "freelancer__user"
+        )
 
         serializer = OrderSerializer(order, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -30,7 +34,7 @@ class ClientOrderListView(APIView):
         client = request.user.client
         orders = Order.objects.filter(
             client=client
-        ).select_related("freelancer", "service")
+        ).select_related("freelancer__user", "service", "client__user")
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
