@@ -15,10 +15,13 @@ insert into ("services_service"."freelancer_id", "services_service"."title", "se
 values (1,"hehe", "haha", 200)
 
 -- get_freelancer obj.freelancer.user.username
-select "users_user"."username"    
-from "users_freelancer"
-join "users_user" on "users_user"."id" = "users_freelancer"."user_id"
-join "services_service" on "users_freelancer"."id" = "services_service"."freelancer_id"
+select "users_user"."username"
+from "users_user"
+join "users_freelancer"
+on "users_freealncer"."user_id" = "users_user"."id"
+join "services_service"
+on "services_serivce"."freelancer_id" = "users_freelancer"."id"
+where "services_service"."id" = 1
 
 -- get_skills obj.freelancer.skills.all()
 select "services_skill"."name"

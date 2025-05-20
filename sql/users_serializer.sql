@@ -22,15 +22,15 @@ select "users_user"."id", "users_user"."password", "users_user"."username", "use
  (id,'profile_string', 0.0)
 
  --freelancer_skills.set(skills)
- delete from "users_freelancer_skills"
- where freelancer_id = freelancer_id
+delete from "users_freelancer_skills"
+where freelancer = freelancer
 
- insert into "users_freelancer_skills"
- ("freelancer_id", "skill_id")
- values
- (freelancerid, skill id1),
- (freelancerid, skill id2),
- (freelancerid, skill id3)
+insert into "users_freelancer_skills"
+("users_freelancer_skills"."id", "users_freelancer_skills"."skill_id")
+values
+(id1, skills1)
+(id2, skills2)
+(id3, skills3)
 
  -- Category.objects.filter(name__in = value)
  select "services_category"."id", "services_category"."name", "services_category"."description"
@@ -76,12 +76,12 @@ join "users_freelancer_skills"
 on "users_freelanacer_skills"."skill_id" = "services_skill"."id"
 
 --client profile
--- get_categories
+-- get_Preferred_categories
 
-select "users_client_preferred_categories"."preferred_categories"
-from "users_client_preferred_categories"
-join "users_client"
-on "users_client"."id" = "users_client_preferred_categories"."id"
+select "services_category"."id", "services_category"."name", "services_category"."description"
+from "services_category"
+join "users_client_preferred_categories" 
+on "users_client_preferred_categories"."category_id" = "services_category"."id"
 
 --password
 --User.objects.filter(email = email).exists
