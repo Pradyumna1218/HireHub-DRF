@@ -43,13 +43,19 @@ class FreelancerProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        freelancer = get_object_or_404(Freelancer, user = request.user)
+        freelancer = get_object_or_404(
+            Freelancer.objects.select_related("user"), 
+            user = request.user
+        )
         serializer = FreelancerProfileSerializer(freelancer)
         return Response(serializer.data)
         
     
     def patch(self, request):
-        freelancer = get_object_or_404(Freelancer, user = request.user)
+        freelancer = get_object_or_404(
+            Freelancer.objects.select_related("user"), 
+            user = request.user
+        )
         serializer = FreelancerProfileSerializer(freelancer, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -60,13 +66,19 @@ class ClientProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        client = get_object_or_404(Client, user = request.user)
+        client = get_object_or_404(
+            Client.objects.select_related("user"), 
+            user = request.user
+        )
         serializer = ClientProfileSerializer(client)
         return Response(serializer.data)
     
 
     def patch(self, request):
-        client = get_object_or_404(Client, user = request.user)
+        client = get_object_or_404(
+            Client.objects.select_related("user"), 
+            user = request.user
+        )
         serializer = ClientProfileSerializer(client, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
