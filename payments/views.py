@@ -9,6 +9,7 @@ from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from services.permissions import IsClient, IsFreelancer
 import requests
+from django.shortcuts import get_object_or_404
 
 class FreelancerOrderListView(APIView):
     permission_classes = [IsFreelancer]
@@ -33,19 +34,14 @@ class ClientOrderListView(APIView):
 
         serializer = OrderSerializer(orders, many=True)
         return Response(serializer.data)
+
 class PaymentCreateView(APIView):
     permission_classes = [IsClient]
 
     def post(self, request, order_id):
         user = request.user
 
-        try:
-            order = Order.objects.get(id=order_id, client__user=user)
-        except Order.DoesNotExist:
-            return Response(
-                {"error": "Order not found for this user"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        order = get_object_or_404(Order, id=order_id, client__user=user)
 
         existing_payment = Payment.objects.filter(order=order, status="Pending").first()
         if existing_payment:
@@ -94,7 +90,7 @@ class PaymentCreateView(APIView):
         payload = {
             "return_url": "http://example.com/",
             "website_url": "https://example.com/",
-            "amount": int(order.total_amount * 100),  
+            "amount": int(order.total_amount * 100),
             "purchase_order_id": f"Order{order.id}",
             "purchase_order_name": "Freelancer Service Payment",
             "customer_info": {
@@ -112,10 +108,10 @@ class PaymentCreateView(APIView):
             response = requests.post(url, json=payload, headers=headers)
             if response.status_code == 200:
                 return response.json()
-            else:
-                return None
+            return None
         except requests.exceptions.RequestException:
             return None
+
 
 class KhaltiPaymentVerifyView(APIView):
     permission_classes = [IsAuthenticated]
@@ -126,15 +122,8 @@ class KhaltiPaymentVerifyView(APIView):
         if not pidx:
             return Response({"error": "Missing pidx (token)"}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            order = Order.objects.get(id=order_id)
-        except Order.DoesNotExist:
-            return Response({"error": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        try:
-            payment = Payment.objects.get(order=order, khalti_token=pidx)
-        except Payment.DoesNotExist:
-            return Response({"error": "Payment record not found"}, status=status.HTTP_404_NOT_FOUND)
+        order = get_object_or_404(Order, id=order_id)
+        payment = get_object_or_404(Payment, order=order, khalti_token=pidx)
 
         url = "https://dev.khalti.com/api/v2/epayment/lookup/"
         payload = { "pidx": pidx }
