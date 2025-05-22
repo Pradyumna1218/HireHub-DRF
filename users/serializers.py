@@ -106,7 +106,7 @@ class SkillSerializer(serializers.ModelSerializer):
         fields = ['name']
 
 class CategorySerializer(serializers.ModelSerializer):
-    skills = SkillSerializer(source='skill_set', many=True)
+    skills = SkillSerializer(source='skills', many=True)
 
     class Meta:
         model = Category
