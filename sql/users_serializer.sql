@@ -17,9 +17,9 @@ select "users_user"."id", "users_user"."password", "users_user"."username", "use
 
  --Freelancer.objects.create(user = user, profile = profile)
  insert into "users_freelancer" 
- ("users_freelancer"."id", "users_freelancer"."profile","users_freelancer"."rating")
+ ("users_freelancer"."id", "users_freelancer"."user_id", "users_freelancer"."profile","users_freelancer"."rating")
  values 
- (id,'profile_string', 0.0)
+ (id, user_id, 'profile_string', 0.0)
 
  --freelancer_skills.set(skills)
 delete from "users_freelancer_skills"
@@ -39,16 +39,16 @@ values
 
 -- Client.objects.create(user=user)
 insert into "users_client"
-("client_id")
+("user_id")
 values
-(client_id)
+(user_id)
 
 -- client.preferred_categories.set(preferred_categories)
 delete from "users_client_preferred_categories"
 where "client_id" = client_id
 
 insert into "users_client_preferred_categories"
-("client_id", "preferred_categories")
+("client_id", "cateogry_id")
 values
 (client_id1, preferred_categories1),
 (client_id2, preferred_categories2),
