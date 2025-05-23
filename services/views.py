@@ -16,7 +16,6 @@ from payments.models import Order
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
-from django.db.models import Prefetch
 
 class CategoryListView(APIView):
     def get(self, request):
@@ -71,14 +70,28 @@ class ClientServiceView(APIView):
 
 class FreelancerServiceDetailView(APIView):
     def get(self, request, pk):
-        service = get_object_or_404(Service, id=pk, freelancer__user=request.user)
+        queryset = Service.objects.select_related(
+            'freelancer',
+            'freelancer__user'
+        ).prefetch_related(
+            'categories',
+            "freelancer__skills"
+        )
+        service = get_object_or_404(queryset, id=pk, freelancer__user=request.user)
         return Response(
             ServiceSerializer(service).data, 
             status=status.HTTP_200_OK
         )
     
     def patch(self, request, pk):
-        service = get_object_or_404(Service, id=pk, freelancer__user=request.user)
+        queryset = Service.objects.select_related(
+            'freelancer',
+            'freelancer__user'
+        ).prefetch_related(
+            'categories',
+            "freelancer__skills"
+        )
+        service = get_object_or_404(queryset, id=pk, freelancer__user=request.user)
         serializer = FreelancerServiceDetailSerializer(service, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
@@ -89,7 +102,14 @@ class ClientServiceDetailView(APIView):
     permission_classes = [IsClient]
 
     def get(self, request, pk):
-        service = get_object_or_404(Service, id=pk)
+        queryset = Service.objects.all().select_related(
+            'freelancer'
+            'freelancer__user'
+        ).prefetch_related(
+            'categories',
+            'freelancer_skill'
+        )
+        service = get_object_or_404(queryset, id=pk)
 
         service_serializer = FreelancerServiceDetailSerializer(service)
 
@@ -97,8 +117,15 @@ class ClientServiceDetailView(APIView):
             "service": service_serializer.data,
         }, status=status.HTTP_200_OK)
 
-    def post(self, request, pk):        
-        service = get_object_or_404(Service, id=pk)
+    def post(self, request, pk):  
+        queryset = Service.objects.all().select_related(
+            'freelancer'
+            'freelancer__user'
+        ).prefetch_related(
+            'categories',
+            'freelancer_skill'
+        )      
+        service = get_object_or_404(queryset, id=pk)
 
         serializer = ProposalCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -112,7 +139,11 @@ class FreelancerProposalListView(APIView):
     def get(self, request):
         freelancer = request.user.freelancer
         proposals = Proposal.objects.filter(
-            freelancer = freelancer).select_related("service", "client")
+            freelancer = freelancer
+        ).select_related(
+            "service", 
+            "client"
+        )
         
         serializer = FreelancerProposalSerializer(proposals, many = True)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -124,8 +155,12 @@ class FreelancerProposalDetailView(APIView):
     def get(self, request, pk):
         freelancer = request.user.freelancer
         proposal = get_object_or_404(
-            Proposal.objects.select_related('service', 'client'),
-            id=pk, freelancer=freelancer
+            Proposal.objects.select_related(
+                'service', 
+                'client'
+            ),
+            id=pk, 
+            freelancer=freelancer
         )
         serializer = FreelancerProposalSerializer(proposal)
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -160,4 +195,7 @@ class FreelancerProposalDetailView(APIView):
                 delivery_date=timezone.now() + timedelta(days=7)
             )
 
-        return Response({"message": f"Proposal {new_status}."}, status=status.HTTP_200_OK)
+        return Response(
+            {"message": f"Proposal {new_status}."}, 
+            status=status.HTTP_200_OK
+        )
