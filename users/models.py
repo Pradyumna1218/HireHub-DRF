@@ -26,7 +26,6 @@ class Freelancer(models.Model):
     profile = models.TextField(blank=True, null= True)
     skills = models.ManyToManyField(Skill, blank=True) 
     rating = models.DecimalField(default=0.0, max_digits=3, decimal_places=1)
-    categories = models.ManyToManyField(Category, blank=True)
 
     def __str__(self):
         return self.user.username
