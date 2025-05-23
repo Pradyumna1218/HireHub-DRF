@@ -26,6 +26,14 @@ def get_service_queryset():
         'categories',
         'freelancer__skills'
     )
+
+def get_freelancer_proposals(user):
+    return Proposal.objects.filter(
+        freelancer = user.freelancer
+    ).select_related(
+        "service",
+        "client"
+    )
 class CategoryListView(APIView):
     def get(self, request):
         categories = Category.objects.all()
@@ -116,14 +124,7 @@ class FreelancerProposalListView(APIView):
     permission_classes = [IsFreelancer]
 
     def get(self, request):
-        freelancer = request.user.freelancer
-        proposals = Proposal.objects.filter(
-            freelancer = freelancer
-        ).select_related(
-            "service", 
-            "client"
-        )
-        
+        proposals = get_freelancer_proposals(request.user)
         serializer = FreelancerProposalSerializer(proposals, many = True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -131,22 +132,21 @@ class FreelancerProposalListView(APIView):
 class FreelancerProposalDetailView(APIView):
     permission_classes = [IsFreelancer]
 
-    def get(self, request, pk):
-        freelancer = request.user.freelancer
+    def get(self, request, pk): 
         proposal = get_object_or_404(
-            Proposal.objects.select_related(
-                'service', 
-                'client'
-            ),
-            id=pk, 
-            freelancer=freelancer
+            get_freelancer_proposals(request.user),
+            id=pk
         )
         serializer = FreelancerProposalSerializer(proposal)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
     def post(self, request, pk):
         freelancer = request.user.freelancer
-        proposal = get_object_or_404(Proposal, id=pk, freelancer=freelancer)
+        proposal = get_object_or_404(
+            Proposal, 
+            id=pk, 
+            freelancer=freelancer
+        )
 
         new_status = request.data.get("status")
         if new_status not in ["accepted", "rejected"]:
