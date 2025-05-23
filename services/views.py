@@ -17,6 +17,15 @@ from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
 
+
+def get_service_queryset():
+    return Service.objects.select_related(
+        'freelancer',
+        'freelancer__user'
+    ).prefetch_related(
+        'categories',
+        'freelancer__skills'
+    )
 class CategoryListView(APIView):
     def get(self, request):
         categories = Category.objects.all()
@@ -38,13 +47,7 @@ class ClientServiceView(APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        queryset = Service.objects.filter(is_active=True).select_related(
-            "freelancer",
-            "freelancer__user"
-        ).prefetch_related(
-            'categories',
-            'freelancer__skills'
-        )
+        queryset = get_service_queryset()
 
         if not data.get('categories') and not data.get('skills'):
             return Response(ServiceSerializer(queryset, many=True).data)
@@ -70,13 +73,7 @@ class ClientServiceView(APIView):
 
 class FreelancerServiceDetailView(APIView):
     def get(self, request, pk):
-        queryset = Service.objects.select_related(
-            'freelancer',
-            'freelancer__user'
-        ).prefetch_related(
-            'categories',
-            "freelancer__skills"
-        )
+        queryset = get_service_queryset()
         service = get_object_or_404(queryset, id=pk, freelancer__user=request.user)
         return Response(
             ServiceSerializer(service).data, 
@@ -84,13 +81,7 @@ class FreelancerServiceDetailView(APIView):
         )
     
     def patch(self, request, pk):
-        queryset = Service.objects.select_related(
-            'freelancer',
-            'freelancer__user'
-        ).prefetch_related(
-            'categories',
-            "freelancer__skills"
-        )
+        queryset = get_service_queryset()
         service = get_object_or_404(queryset, id=pk, freelancer__user=request.user)
         serializer = FreelancerServiceDetailSerializer(service, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
@@ -102,13 +93,7 @@ class ClientServiceDetailView(APIView):
     permission_classes = [IsClient]
 
     def get(self, request, pk):
-        queryset = Service.objects.all().select_related(
-            'freelancer'
-            'freelancer__user'
-        ).prefetch_related(
-            'categories',
-            'freelancer_skill'
-        )
+        queryset = get_service_queryset()
         service = get_object_or_404(queryset, id=pk)
 
         service_serializer = FreelancerServiceDetailSerializer(service)
@@ -118,13 +103,7 @@ class ClientServiceDetailView(APIView):
         }, status=status.HTTP_200_OK)
 
     def post(self, request, pk):  
-        queryset = Service.objects.all().select_related(
-            'freelancer'
-            'freelancer__user'
-        ).prefetch_related(
-            'categories',
-            'freelancer_skill'
-        )      
+        queryset = get_service_queryset()    
         service = get_object_or_404(queryset, id=pk)
 
         serializer = ProposalCreateSerializer(data=request.data)
