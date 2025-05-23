@@ -2,6 +2,9 @@ from rest_framework import serializers
 from .models import Category, Skill, Service, Proposal
 from django.db import transaction
 from users.models import Freelancer
+from django.db.models import Prefetch
+
+
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill

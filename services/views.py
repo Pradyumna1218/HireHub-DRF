@@ -16,6 +16,8 @@ from payments.models import Order
 from django.utils import timezone
 from datetime import timedelta
 from django.shortcuts import get_object_or_404
+from django.db.models import Prefetch
+
 class CategoryListView(APIView):
     def get(self, request):
         categories = Category.objects.all()
@@ -37,7 +39,13 @@ class ClientServiceView(APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        queryset = Service.objects.filter(is_active=True)
+        queryset = Service.objects.filter(is_active=True).select_related(
+            "freelancer",
+            "freelancer__user"
+        ).prefetch_related(
+            'categories',
+            'freelancer__skills'
+        )
 
         if not data.get('categories') and not data.get('skills'):
             return Response(ServiceSerializer(queryset, many=True).data)
