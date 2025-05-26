@@ -1,6 +1,10 @@
 
 from mongoengine import Document, StringField, DateTimeField
 from django.utils import timezone
+from django.db import models
+from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
+
 
 class Message(Document):
     """
@@ -26,3 +30,16 @@ class Message(Document):
         'collection': 'chat_messages',
         'ordering': ['-timestamp']
     }
+
+
+class Review(models.Model):
+    freelancer = models.ForeignKey("users.freelancer", on_delete=models.CASCADE, related_name="reviews")
+    client = models.ForeignKey("users.client", on_delete=models.CASCADE, related_name="reviews")
+    message = models.TextField(blank=True)
+    rating = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ['client', 'freelancer']
+
+

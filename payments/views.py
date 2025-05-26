@@ -10,6 +10,8 @@ from rest_framework.permissions import IsAuthenticated
 from services.permissions import IsClient, IsFreelancer
 import requests
 from django.shortcuts import get_object_or_404
+from datetime import timedelta
+
 
 class FreelancerOrderListView(APIView):
     """
@@ -60,15 +62,24 @@ class PaymentCreateView(APIView):
 
     def post(self, request, order_id):
         user = request.user
-
         order = get_object_or_404(Order, id=order_id, client__user=user)
 
+        # Define your token expiry duration (e.g., 15 minutes)
+        token_expiry_time = timezone.now() - timedelta(minutes=15)
+
         existing_payment = Payment.objects.filter(order=order, status="Pending").first()
+        
         if existing_payment:
-            if not existing_payment.khalti_token:
+            # Check if token exists and is fresh enough
+            if existing_payment.khalti_token and existing_payment.payment_date > token_expiry_time:
+                serializer = PaymentSerializer(existing_payment)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                # Token expired or no token, create new one
                 khalti_response = self.initiate_khalti_payment(order)
                 if khalti_response:
                     existing_payment.khalti_token = khalti_response.get('pidx')
+                    existing_payment.payment_date = timezone.now()
                     existing_payment.save()
                     serializer = PaymentSerializer(existing_payment)
                     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -77,9 +88,8 @@ class PaymentCreateView(APIView):
                         {"error": "Failed to initiate Khalti payment"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
-            serializer = PaymentSerializer(existing_payment)
-            return Response(serializer.data, status=status.HTTP_200_OK)
 
+        # No existing payment or no pending payment, create new payment
         payment = Payment.objects.create(
             order=order,
             user=user,
@@ -104,13 +114,8 @@ class PaymentCreateView(APIView):
                 {"error": "Failed to initiate Khalti payment"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
     def initiate_khalti_payment(self, order):
-        """
-        Initiates a Khalti payment request for the given order.
-        Returns the JSON response on success or None on failure.
-        """
-
         url = "https://dev.khalti.com/api/v2/epayment/initiate/"
         payload = {
             "return_url": "http://example.com/",
@@ -121,14 +126,13 @@ class PaymentCreateView(APIView):
             "customer_info": {
                 "name": order.client.user.username,
                 "email": order.client.user.email or "test@khalti.com",
-                "phone": order.client.user.phone or "9800000001"
+                "phone": getattr(order.client.user, "phone", "9800000001")
             }
         }
         headers = {
             "Authorization": f"key {settings.KHALTI_SECRET_KEY}",
             "Content-Type": "application/json"
         }
-
         try:
             response = requests.post(url, json=payload, headers=headers)
             if response.status_code == 200:
@@ -136,7 +140,6 @@ class PaymentCreateView(APIView):
             return None
         except requests.exceptions.RequestException:
             return None
-
 
 class KhaltiPaymentVerifyView(APIView):
     """
@@ -170,6 +173,7 @@ class KhaltiPaymentVerifyView(APIView):
             if response.status_code == 200:
                 payment.khalti_transaction_id = result.get("transaction_id")
                 payment.is_verified = True
+                payment.status = "Completed"  
                 payment.save()
 
                 order.status = "Completed"

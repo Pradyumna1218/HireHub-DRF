@@ -5,6 +5,12 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from mongoengine.queryset.visitor import Q
 from .consumers import Message
+from .serializers import ReviewSerialzer
+from services.permissions import IsClient
+from rest_framework import status
+from .models import Review
+from payments.models import Payment, Order 
+
 
 class ChatHistoryView(APIView):
     """
@@ -52,3 +58,32 @@ class ChatHistoryView(APIView):
             for msg in messages
         ]
         return Response(data)
+    
+class ReviewCreateView(APIView):
+    permission_classes = [IsClient]
+
+    def post(self, request, order_id):
+        client = request.user.client        
+        order = get_object_or_404(Order, id=order_id)
+
+        payment_qs = Payment.objects.filter(
+            order=order,
+            user=request.user,  
+            status='Completed'  
+        )
+
+        if not payment_qs.exists():
+            return Response(
+                {"error": "You cannot review a freelancer without completed payment."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        freelancer = order.freelancer 
+        data = request.data.copy()
+        data['freelancer'] = freelancer.user.id  # FK to User probably
+        # Remove client from data — pass it in save() explicitly
+
+        serializer = ReviewSerialzer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(client=client)  # <-- pass client instance directly here
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
