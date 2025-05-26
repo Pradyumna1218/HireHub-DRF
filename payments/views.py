@@ -12,6 +12,11 @@ import requests
 from django.shortcuts import get_object_or_404
 
 class FreelancerOrderListView(APIView):
+    """
+    GET: List all orders associated with the authenticated freelancer.
+    Requires freelancer permissions.
+    """
+
     permission_classes = [IsFreelancer]
 
     def get(self, request):
@@ -28,6 +33,11 @@ class FreelancerOrderListView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class ClientOrderListView(APIView):
+    """
+    GET: List all orders associated with the authenticated client.
+    Requires client permissions.
+    """
+
     permission_classes = [IsClient]
 
     def get(self, request):
@@ -40,6 +50,12 @@ class ClientOrderListView(APIView):
         return Response(serializer.data)
 
 class PaymentCreateView(APIView):
+    """
+    POST: Create a payment record and initiate Khalti payment for an order.
+    If a pending payment exists, reuse it.
+    Requires client permissions.
+    """
+
     permission_classes = [IsClient]
 
     def post(self, request, order_id):
@@ -90,6 +106,11 @@ class PaymentCreateView(APIView):
             )
 
     def initiate_khalti_payment(self, order):
+        """
+        Initiates a Khalti payment request for the given order.
+        Returns the JSON response on success or None on failure.
+        """
+
         url = "https://dev.khalti.com/api/v2/epayment/initiate/"
         payload = {
             "return_url": "http://example.com/",
@@ -118,6 +139,12 @@ class PaymentCreateView(APIView):
 
 
 class KhaltiPaymentVerifyView(APIView):
+    """
+    POST: Verify Khalti payment using the payment token (pidx).
+    Updates Payment and Order status accordingly.
+    Requires authentication.
+    """
+    
     permission_classes = [IsAuthenticated]
 
     def post(self, request, order_id):
