@@ -19,6 +19,11 @@ from django.shortcuts import get_object_or_404
 
 
 def get_service_queryset():
+    """
+    Returns a queryset of Service objects with related freelancer,
+    user, categories, and freelancer skills prefetched for efficiency.
+    """
+     
     return Service.objects.select_related(
         'freelancer',
         'freelancer__user'
@@ -28,6 +33,11 @@ def get_service_queryset():
     )
 
 def get_freelancer_proposals(user):
+    """
+    Returns a queryset of Proposal objects for the given freelancer user,
+    with related service and client prefetched.
+    """
+
     return Proposal.objects.filter(
         freelancer = user.freelancer
     ).select_related(
@@ -35,13 +45,22 @@ def get_freelancer_proposals(user):
         "client"
     )
 class CategoryListView(APIView):
+    """
+    GET: List all available categories.
+    """
+
     def get(self, request):
         categories = Category.objects.all()
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
     
 class FreelancerServiceView(APIView):
-    permission_classes = [IsFreelancer, IsAuthenticated]
+    """
+    POST: Allow authenticated freelancers to create a new service.
+    Permission: IsFreelancer
+    """
+
+    permission_classes = [IsFreelancer]
 
     def post(self, request):
         serializer = ServiceSerializer(data=request.data, context={'request': request})
@@ -50,6 +69,12 @@ class FreelancerServiceView(APIView):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     
 class ClientServiceView(APIView):
+    """
+    GET: Allow clients to search services by categories and/or skills.
+    Returns matching services grouped by categories and skills.
+    """
+    permission_classes = [IsClient]
+
     def get(self, request):
         serializer = ServiceSearchSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -80,6 +105,14 @@ class ClientServiceView(APIView):
         return Response(result)
 
 class FreelancerServiceDetailView(APIView):
+    """
+    GET: Retrieve details of a specific service owned by the authenticated freelancer.
+    PATCH: Partially update a specific service owned by the authenticated freelancer.
+    Permission: IsFreelancer
+    """
+
+    permission_classes = [IsFreelancer]
+
     def get(self, request, pk):
         queryset = get_service_queryset()
         service = get_object_or_404(queryset, id=pk, freelancer__user=request.user)
@@ -98,6 +131,12 @@ class FreelancerServiceDetailView(APIView):
     
 
 class ClientServiceDetailView(APIView):
+    """
+    GET: Retrieve detailed info of a service.
+    POST: Create a proposal for the service by the authenticated client.
+    Permission: IsClient
+    """
+
     permission_classes = [IsClient]
 
     def get(self, request, pk):
@@ -121,6 +160,11 @@ class ClientServiceDetailView(APIView):
 
 
 class FreelancerProposalListView(APIView):
+    """
+    GET: List all proposals received by the authenticated freelancer.
+    Permission: IsFreelancer
+    """
+
     permission_classes = [IsFreelancer]
 
     def get(self, request):
@@ -130,6 +174,13 @@ class FreelancerProposalListView(APIView):
 
 
 class FreelancerProposalDetailView(APIView):
+    """
+    GET: Retrieve details of a specific proposal belonging to the authenticated freelancer.
+    POST: Update the status of a proposal ('accepted' or 'rejected').
+          If accepted, automatically creates an Order with a 7-day delivery.
+    Permission: IsFreelancer
+    """
+    
     permission_classes = [IsFreelancer]
 
     def get(self, request, pk): 
