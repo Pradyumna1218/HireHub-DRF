@@ -60,6 +60,27 @@ class ChatHistoryView(APIView):
         return Response(data)
     
 class ReviewCreateView(APIView):
+    """
+    API view to allow a client to create or update a review for a freelancer based on an order.
+
+    Permissions:
+        - Only users with 'IsClient' permission can access.
+
+    POST /reviews/create/<order_id>/:
+        - Validates that the requesting client has completed payment for the given order.
+        - Allows one review per client-freelancer pair; updates existing review if present.
+        - Saves the review with the associated client and freelancer.
+        - Recalculates and updates the freelancer's average rating.
+    
+    Request Data:
+        - message (str): Review message.
+        - rating (int): Rating score.
+
+    Response:
+        - 201 Created with serialized review data on success.
+        - 403 Forbidden if no completed payment is found for the order.
+    """
+    
     permission_classes = [IsClient]
 
     def post(self, request, order_id):
