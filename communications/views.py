@@ -64,7 +64,15 @@ class ReviewCreateView(APIView):
 
     def post(self, request, order_id):
         client = request.user.client        
-        order = get_object_or_404(Order, id=order_id)
+        order = get_object_or_404(
+            Order.objects.all().select_related(
+                "freelancer",
+                "freelancer__user",
+                "client",
+                "freelancer__user"
+            ), 
+            id=order_id
+        )
 
         payment_qs = Payment.objects.filter(
             order=order,
