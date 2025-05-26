@@ -10,7 +10,7 @@ from services.permissions import IsClient
 from rest_framework import status
 from .models import Review
 from payments.models import Payment, Order 
-
+from django.db.models import Avg
 
 class ChatHistoryView(APIView):
     """
@@ -77,13 +77,30 @@ class ReviewCreateView(APIView):
                 {"error": "You cannot review a freelancer without completed payment."},
                 status=status.HTTP_403_FORBIDDEN
             )
-        freelancer = order.freelancer 
+
+        freelancer = order.freelancer
         data = request.data.copy()
-        data['freelancer'] = freelancer.user.id  # FK to User probably
-        # Remove client from data — pass it in save() explicitly
+        data['freelancer'] = freelancer.user.id 
+        data['client'] = client.user.id          
 
-        serializer = ReviewSerialzer(data=data)
+        existing_review = Review.objects.filter(
+            client=client, 
+            freelancer=freelancer
+        ).first()
+
+        if existing_review:
+            serializer = ReviewSerialzer(existing_review, data=data, partial=True)
+        else:
+            serializer = ReviewSerialzer(data=data)
+
         serializer.is_valid(raise_exception=True)
-        serializer.save(client=client)  # <-- pass client instance directly here
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        serializer.save(client=client, freelancer=freelancer)
 
+        avg_rating = Review.objects.filter(
+            freelancer=freelancer
+        ).aggregate(avg=Avg('rating'))['avg'] or 0.0
+
+        freelancer.rating = round(avg_rating, 1)
+        freelancer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
