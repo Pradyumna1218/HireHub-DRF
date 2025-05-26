@@ -2,10 +2,11 @@ from rest_framework import serializers
 from .models import User, Freelancer, Client
 from django.core.signing import TimestampSigner, BadSignature, SignatureExpired
 from services.models import Skill, Category
-from django.db import transaction, IntegrityError
-
+from django.db import transaction
+from .password_validation import validate_strong_password
 
 signer = TimestampSigner()
+
 
 class UserRegistrationSerializers(serializers.ModelSerializer):
     """
@@ -23,26 +24,12 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
         model = User
         fields = ["id", "username", "email", "phone", "password"]
     
-    def validate_password(self, password):
-        """Enforce password validation and pattern of password"""
-
-        if len(password) < 8:
-            raise serializers.ValidationError("Password must be at least 8 characters long.")
-
-        has_lower = any(c.islower() for c in password)
-        has_upper = any(c.isupper() for c in password)
-        has_digit = any(c.isdigit() for c in password)
-        has_special = any(c in "!@#$%^&*()-+" for c in password)
-        no_adjacent_duplicates = all(password[i] != password[i + 1] for i in range(len(password) - 1))
-
-        if not all([has_lower, has_upper, has_digit, has_special, no_adjacent_duplicates]):
-            raise serializers.ValidationError(
-                "Password must contain at least one lowercase, one uppercase, one digit, "
-                "one special character (!@#$%^&*()-+), and no adjacent repeated characters."
-            )   
-
-        return password
-    
+    def validate_password(self, value):
+        """
+        Use password validation function in password_validator.py
+        """
+        return validate_strong_password(value)
+        
     def create(self, validated_data):
         """Create user with hashed password"""
 
@@ -242,21 +229,17 @@ class PasswordResetRequestSerializer(serializers.Serializer):
         if not User.objects.filter(email = email).exists():
             raise serializers.ValidationError("User with this email doesn't exists")
         return email
-    
+
+
+
 class PasswordResetSerializer(serializers.Serializer):
-    """
-    Serializer for resetting password using a signed token.
-
-    Validates:
-        - Token is valid and not expired
-    """
-
     token = serializers.CharField()
-    new_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+
+    def validate_new_password(self, value):
+        return validate_strong_password(value)
 
     def validate(self, data):
-        """Check token validity and extract the user."""
-
         token = data.get('token')
         try:
             user_id = signer.unsign(token, max_age=3600)  
@@ -268,7 +251,6 @@ class PasswordResetSerializer(serializers.Serializer):
         return data
 
     def save(self):
-        """Reset the user's password."""
         password = self.validated_data['new_password']
         self.user.set_password(password)
         self.user.save()
