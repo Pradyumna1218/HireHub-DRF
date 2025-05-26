@@ -20,6 +20,13 @@ from datetime import timedelta
 signer = TimestampSigner()
 
 class FreelancerRegisterView(APIView):
+    """
+    Register a new freelancer.
+
+    Method: POST
+    Permissions: AllowAny
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -30,6 +37,13 @@ class FreelancerRegisterView(APIView):
 
 
 class ClientRegisterView(APIView):
+    """
+    Register a new client.
+
+    Method: POST
+    Permissions: AllowAny
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -40,6 +54,16 @@ class ClientRegisterView(APIView):
 
 
 class FreelancerProfileView(APIView):
+    """
+    View or update the authenticated freelancer's profile.
+
+    Methods:
+        - GET: Return freelancer profile
+        - PATCH: Update profile fields
+
+    Permissions: IsAuthenticated
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -63,6 +87,16 @@ class FreelancerProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 
 class ClientProfileView(APIView):
+    """
+    View or update the authenticated client's profile.
+
+    Methods:
+        - GET: Return client profile
+        - PATCH: Update profile fields
+
+    Permissions: IsAuthenticated
+    """
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -86,6 +120,16 @@ class ClientProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_202_ACCEPTED)  
         
 class PasswordResetRequestView(APIView):
+    """
+    Handle password reset requests.
+
+    Method: POST
+    Input: Email
+    Output: Password reset link sent via email (via Celery task)
+
+    Permissions: AllowAny
+    """
+
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -115,6 +159,17 @@ class PasswordResetRequestView(APIView):
 
 
 class PasswordResetView(APIView):
+    """
+    Reset the password using a valid token.
+
+    Method: POST
+    URL Param: token
+    Body Param: new_password
+
+    Permissions: AllowAny
+    """
+    permission_classes = [AllowAny]
+
     def post(self, request):
         token = request.query_params.get('token')
         if not token:

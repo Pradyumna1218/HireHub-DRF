@@ -8,11 +8,24 @@ from django.db import transaction, IntegrityError
 signer = TimestampSigner()
 
 class UserRegistrationSerializers(serializers.ModelSerializer):
+    """
+    Serializer for registering a new user.
+
+    Fields:
+        id, username, email, phone, password
+
+    Validates:
+        - Minimum 8-character password
+        - One lowercase, one uppercase, one digit, one special char
+        - No adjacent repeated characters
+    """
     class Meta: 
         model = User
         fields = ["id", "username", "email", "phone", "password"]
     
     def validate_password(self, password):
+        """Enforce password validation and pattern of password"""
+
         if len(password) < 8:
             raise serializers.ValidationError("Password must be at least 8 characters long.")
 
@@ -31,6 +44,8 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
         return password
     
     def create(self, validated_data):
+        """Create user with hashed password"""
+
         password = validated_data.pop("password")
         user = User(**validated_data)
         user.set_password(password)
@@ -38,6 +53,14 @@ class UserRegistrationSerializers(serializers.ModelSerializer):
         return user 
 
 class FreelancerRegistrationSerializers(UserRegistrationSerializers):
+    """
+    Serializer for freelancer registration.
+
+    Adds:
+        - profile (optional)
+        - skills (validated against Skill model)
+    """
+
     profile = serializers.CharField(required=False, allow_blank=True)
     skills = serializers.ListField(child=serializers.CharField(), write_only=True)
 
@@ -46,6 +69,8 @@ class FreelancerRegistrationSerializers(UserRegistrationSerializers):
         read_only_fields = ["rating"]
 
     def validate_skills(self, skill_list):
+        """Ensure all submitted skills exist."""
+
         found_skills = Skill.objects.filter(name__in=skill_list)
         skill_set = set(skill_list)
         found_names = {skill.name for skill in found_skills}
@@ -57,6 +82,8 @@ class FreelancerRegistrationSerializers(UserRegistrationSerializers):
         return list(found_skills)
 
     def create(self, validated_data):
+        """Create user + freelancer + assign validated skills."""
+
         profile = validated_data.pop('profile', '')
         skills = validated_data.pop('skills', [])
         
@@ -72,12 +99,21 @@ class FreelancerRegistrationSerializers(UserRegistrationSerializers):
         
 
 class ClientRegistrationSerializer(UserRegistrationSerializers):
+    """
+    Serializer for client registration.
+
+    Adds:
+        - preferred_categories (optional)
+    """
+
     preferred_categories = serializers.ListField(required=False, child=serializers.CharField())
 
     class Meta(UserRegistrationSerializers.Meta):
         fields = UserRegistrationSerializers.Meta.fields + ['preferred_categories']
 
     def validate_preferred_categories(self, value):
+        """Ensure all submitted categories exist."""
+
         categories = Category.objects.filter(name__in=value)
         category_set = set(value)
         category_names = {category.name for category in categories}
@@ -90,6 +126,8 @@ class ClientRegistrationSerializer(UserRegistrationSerializers):
         return list(categories)
 
     def create(self, validated_data):
+        """Create user + client + assign validated preferred categories."""
+
         preferred_categories = validated_data.pop('preferred_categories', [])
         
         with transaction.atomic():
@@ -101,11 +139,18 @@ class ClientRegistrationSerializer(UserRegistrationSerializers):
 
     
 class SkillSerializer(serializers.ModelSerializer):
+    """Serializer for Skill model."""
     class Meta:
         model = Skill
         fields = ['name']
 
 class CategorySerializer(serializers.ModelSerializer):
+    """
+    Serializer for Category model.
+
+    Includes nested SkillSerializer for associated skills.
+    """
+
     skills = SkillSerializer(source='skills', many=True)
 
     class Meta:
@@ -113,6 +158,13 @@ class CategorySerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'skills']
         
 class FreelancerProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer to expose freelancer profile with user info and related data.
+
+    Fields:
+        id, username, email, phone, profile, skills, categories, rating
+    """
+
     id = serializers.CharField(source='user.id')
     username = serializers.CharField(source='user.username')
     email = serializers.EmailField(source='user.email')
@@ -138,6 +190,10 @@ class FreelancerProfileSerializer(serializers.ModelSerializer):
     
 
 class ClientProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer to expose client profile with user info and preferred categories.
+    """
+
     id = serializers.CharField(source='user.id')
     username = serializers.CharField(source='user.username')
     email = serializers.EmailField(source='user.email')
@@ -151,6 +207,8 @@ class ClientProfileSerializer(serializers.ModelSerializer):
                   ]
     
     def validate_preferred_categories(self, value):
+        """Validate preferred categories (redundant here — safe to remove)."""
+
         found_categories = Category.objects.filter(name__in=value)
         category_set = set(value)
         found_names = {category.name for category in found_categories}
@@ -163,22 +221,42 @@ class ClientProfileSerializer(serializers.ModelSerializer):
         return list(found_categories)
     
     def get_preferred_categories(self, obj):
+        """Return list of preferred category names."""
+
         return [category.name for category in obj.preferred_categories.all()]
 
         
 class PasswordResetRequestSerializer(serializers.Serializer):
+    """
+    Serializer for requesting a password reset.
+
+    Validates:
+        - That a user with the given email exists
+    """
+
     email = serializers.EmailField()
 
     def validate_email(self, email):
+        """Ensure a user with the email exists."""
+
         if not User.objects.filter(email = email).exists():
             raise serializers.ValidationError("User with this email doesn't exists")
         return email
     
 class PasswordResetSerializer(serializers.Serializer):
+    """
+    Serializer for resetting password using a signed token.
+
+    Validates:
+        - Token is valid and not expired
+    """
+
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True)
 
     def validate(self, data):
+        """Check token validity and extract the user."""
+
         token = data.get('token')
         try:
             user_id = signer.unsign(token, max_age=3600)  
@@ -190,6 +268,7 @@ class PasswordResetSerializer(serializers.Serializer):
         return data
 
     def save(self):
+        """Reset the user's password."""
         password = self.validated_data['new_password']
         self.user.set_password(password)
         self.user.save()
