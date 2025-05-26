@@ -68,7 +68,11 @@ class FreelancerProfileView(APIView):
 
     def get(self, request):
         freelancer = get_object_or_404(
-            Freelancer.objects.select_related("user"), 
+            Freelancer.objects.select_related(
+                "user"
+            ).prefetch_related(
+                "skills"
+            ), 
             user = request.user
         )
         serializer = FreelancerProfileSerializer(freelancer)
@@ -77,7 +81,11 @@ class FreelancerProfileView(APIView):
     
     def patch(self, request):
         freelancer = get_object_or_404(
-            Freelancer.objects.select_related("user"), 
+            Freelancer.objects.select_related(
+                "user"
+            ).prefetch_related(
+                "skills"
+            ), 
             user = request.user
         )
         serializer = FreelancerProfileSerializer(freelancer, data=request.data, partial=True)
@@ -101,7 +109,11 @@ class ClientProfileView(APIView):
 
     def get(self, request):
         client = get_object_or_404(
-            Client.objects.select_related("user"), 
+            Client.objects.select_related(
+                "user"
+                ).prefetch_related(
+                    "preferred_categories"
+                ), 
             user = request.user
         )
         serializer = ClientProfileSerializer(client)
@@ -110,7 +122,11 @@ class ClientProfileView(APIView):
 
     def patch(self, request):
         client = get_object_or_404(
-            Client.objects.select_related("user"), 
+            Client.objects.select_related(
+                "user"
+            ).prefetch_related(
+                "preferred_categories"
+            ), 
             user = request.user
         )
         serializer = ClientProfileSerializer(client, data=request.data, partial=True)
@@ -142,7 +158,7 @@ class PasswordResetRequestView(APIView):
         token = signer.sign(user.pk)
         reset_link = f"http://localhost:8000/reset/?token={token}"
 
-        reset_token = PasswordResetToken.objects.create(
+        PasswordResetToken.objects.create(
             user=user,
             token=token,
             used=False  
