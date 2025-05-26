@@ -7,9 +7,32 @@ from mongoengine.queryset.visitor import Q
 from .consumers import Message
 
 class ChatHistoryView(APIView):
+    """
+    API endpoint to retrieve the chat history between the authenticated user
+    and another user specified by username.
+
+    Permissions:
+        - Requires authentication.
+
+    Methods:
+        - GET: Returns all messages exchanged between the logged-in user and the target user,
+               ordered by timestamp.
+    """
+    
     permission_classes = [IsAuthenticated]
 
     def get(self, request, username):
+        """
+        Handle GET request to retrieve chat history with a specific user.
+
+        Args:
+            request (HttpRequest): The request object containing the authenticated user.
+            username (str): The username of the user to retrieve chat history with.
+
+        Returns:
+            Response: A list of messages (as dictionaries) between the authenticated user and the target user.
+        """
+
         User = get_user_model()
         sender = request.user
         receiver = get_object_or_404(User, username=username)

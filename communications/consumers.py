@@ -5,7 +5,25 @@ import json
 from .models import Message
 
 class ChatConsumer(AsyncConsumer):
+    """
+    WebSocket consumer for handling real-time chat between users.
+
+    This consumer:
+    - Authenticates users via JWT token from the 'Authorization' header.
+    - Dynamically builds a chat room based on the sender and receiver's usernames.
+    - Broadcasts messages to the appropriate room group.
+    - Saves each chat message to the database.
+    """
+
     async def websocket_connect(self, event):
+        """
+        Called when the WebSocket connection is initiated.
+
+        - Authenticates the user using the JWT token from headers.
+        - Extracts sender and receiver usernames.
+        - Joins a unique room group for the chat session.
+        """
+
         self.room_group_name = None  
 
         try:
@@ -37,10 +55,24 @@ class ChatConsumer(AsyncConsumer):
         await self.send({'type': 'websocket.accept'})
 
     async def websocket_disconnect(self, event):
+        """
+        Called when the WebSocket connection is closed.
+
+        - Removes the channel from the chat room group.
+        """
+
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def websocket_receive(self, event):
+        """
+        Called when a message is received from the WebSocket.
+
+        - Parses the incoming message.
+        - Saves it to the database.
+        - Sends the message to all users in the room group.
+        """
+
         data = json.loads(event['text'])
         message = data['message']
 
@@ -55,6 +87,11 @@ class ChatConsumer(AsyncConsumer):
         )
 
     async def chat_message(self, event):
+        """
+        Handler for broadcast messages to the room group.
+
+        - Sends the message to the WebSocket client.
+        """
         await self.send({
             'type': 'websocket.send',
             'text': json.dumps({
@@ -64,6 +101,15 @@ class ChatConsumer(AsyncConsumer):
 
     @database_sync_to_async
     def save_message(self, sender_username, receiver_username, message):
+        """
+        Persists the chat message to the database.
+
+        Args:
+            sender_username (str): Username of the message sender.
+            receiver_username (str): Username of the message receiver.
+            message (str): The chat message content.
+        """
+        
         from django.contrib.auth import get_user_model
         User = get_user_model()
 
