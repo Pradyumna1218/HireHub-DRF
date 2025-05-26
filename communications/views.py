@@ -67,8 +67,6 @@ class ReviewCreateView(APIView):
         order = get_object_or_404(
             Order.objects.all().select_related(
                 "freelancer",
-                "freelancer__user",
-                "client",
                 "freelancer__user"
             ), 
             id=order_id
@@ -82,7 +80,7 @@ class ReviewCreateView(APIView):
 
         if not payment_qs.exists():
             return Response(
-                {"error": "You cannot review a freelancer without completed payment."},
+                {"error": "Can't review a freelancer without completed payment."},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -91,7 +89,12 @@ class ReviewCreateView(APIView):
         data['freelancer'] = freelancer.user.id 
         data['client'] = client.user.id          
 
-        existing_review = Review.objects.filter(
+        existing_review = Review.objects.select_related(
+            'freelancer', 
+            'freelancer__user', 
+            'client', 
+            'client__user'
+        ).filter(
             client=client, 
             freelancer=freelancer
         ).first()
