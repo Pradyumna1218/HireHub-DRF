@@ -1,36 +1,42 @@
 from channels.generic.websocket import AsyncConsumer
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
+from django.contrib.auth import get_user_model
 import json
 from .models import Message
 
+User = get_user_model()
+
 class ChatConsumer(AsyncConsumer):
     """
-    WebSocket consumer for handling real-time chat between users.
+    WebSocket consumer that handles real-time chat functionality between authenticated users.
 
-    This consumer:
-    - Authenticates users via JWT token from the 'Authorization' header.
-    - Dynamically builds a chat room based on the sender and receiver's usernames.
-    - Broadcasts messages to the appropriate room group.
-    - Saves each chat message to the database.
+    Responsibilities:
+    - Authenticates users via JWT passed in headers.
+    - Assigns users to a consistent chat room group based on sorted usernames.
+    - Broadcasts messages between participants in the same room.
+    - Persists chat messages to the database.
     """
 
     async def websocket_connect(self, event):
         """
-        Called when the WebSocket connection is initiated.
+        Handles WebSocket connection initiation.
 
-        - Authenticates the user using the JWT token from headers.
-        - Extracts sender and receiver usernames.
-        - Joins a unique room group for the chat session.
+        Steps:
+        - Authenticates user via JWT token from headers.
+        - Extracts the receiver's username from the URL.
+        - Constructs a unique and deterministic room group name.
+        - Joins the user to the appropriate channel group.
         """
-
-        self.room_group_name = None  
+         
+        self.room_group_name = None
 
         try:
             headers = dict(self.scope["headers"])
             auth_header = headers.get(b'authorization', b'').decode()
 
             if not auth_header.startswith('Bearer '):
+                print("[AUTH ERROR] Invalid header format.")
                 await self.send({'type': 'websocket.close'})
                 return
 
@@ -38,66 +44,89 @@ class ChatConsumer(AsyncConsumer):
             access_token = AccessToken(token)
             user_id = access_token['user_id']
 
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
             self.sender = await database_sync_to_async(User.objects.get)(id=user_id)
+            print(f"[AUTH SUCCESS] Sender: {self.sender.username}")
 
         except Exception as e:
+            print(f"[AUTH FAILED] Reason: {str(e)}")
             await self.send({'type': 'websocket.close'})
             return
 
-        self.receiver = self.scope['url_route']['kwargs']['username']
+        try:
+            self.receiver = self.scope['url_route']['kwargs']['username']
+            usernames = sorted([self.sender.username, self.receiver])
+            self.room_group_name = f"chat_{usernames[0]}_{usernames[1]}"
 
-        usernames = sorted([self.sender.username, self.receiver])
-        self.room_group_name = f"chat_{usernames[0]}_{usernames[1]}"
+            print(f"[CONNECTED] Sender: {self.sender.username}, Receiver: {self.receiver}")
+            print(f"[ROOM CREATED] Room Group: {self.room_group_name}")
 
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.send({'type': 'websocket.accept'})
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            await self.send({'type': 'websocket.accept'})
+
+        except Exception as e:
+            print(f"[ERROR CONNECTING TO GROUP] {str(e)}")
+            await self.send({'type': 'websocket.close'})
 
     async def websocket_disconnect(self, event):
         """
-        Called when the WebSocket connection is closed.
+        Handles cleanup on WebSocket disconnection.
 
-        - Removes the channel from the chat room group.
+        Removes the current user from the room group if it was created.
         """
 
         if hasattr(self, 'room_group_name'):
+            print(f"[DISCONNECT] Leaving group: {self.room_group_name}")
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     async def websocket_receive(self, event):
         """
-        Called when a message is received from the WebSocket.
+        Handles an incoming WebSocket message.
 
-        - Parses the incoming message.
+        - Parses the JSON message.
         - Saves it to the database.
-        - Sends the message to all users in the room group.
+        - Broadcasts it to all users in the room group.
         """
 
-        data = json.loads(event['text'])
-        message = data['message']
+        try:
+            data = json.loads(event['text'])
+            message = data['message']
 
-        await self.save_message(self.sender.username, self.receiver, message)
+            print(f"[RECEIVED] Message: {message} from {self.sender.username} to {self.receiver}")
+            print(f"[BROADCAST] To group: {self.room_group_name}")
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'chat_message',
-                'message': message
-            }
-        )
+            await self.save_message(self.sender.username, self.receiver, message)
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'chat_message',
+                    'message': message
+                }
+            )
+        except Exception as e:
+            print(f"[ERROR RECEIVING MESSAGE] {str(e)}")
 
     async def chat_message(self, event):
         """
-        Handler for broadcast messages to the room group.
+        Receives a broadcast message from the room group and sends it to the WebSocket client.
 
-        - Sends the message to the WebSocket client.
+        Expects:
+            event = {
+                'type': 'chat_message',
+                'message': <str>
+            }
         """
-        await self.send({
-            'type': 'websocket.send',
-            'text': json.dumps({
-                'message': event['message']
+
+        try:
+            print(f"[GROUP MESSAGE] Dispatching: {event['message']}")
+            await self.send({
+                'type': 'websocket.send',
+                'text': json.dumps({
+                    'message': event['message']
+                })
             })
-        })
+        except Exception as e:
+            print(f"[ERROR SENDING MESSAGE] {str(e)}")
 
     @database_sync_to_async
     def save_message(self, sender_username, receiver_username, message):
@@ -105,19 +134,21 @@ class ChatConsumer(AsyncConsumer):
         Persists the chat message to the database.
 
         Args:
-            sender_username (str): Username of the message sender.
-            receiver_username (str): Username of the message receiver.
-            message (str): The chat message content.
+            sender_username (str): The username of the sender.
+            receiver_username (str): The username of the receiver.
+            message (str): The message content.
         """
         
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
+        try:
+            sender = User.objects.get(username=sender_username)
+            receiver = User.objects.get(username=receiver_username)
 
-        sender = User.objects.get(username=sender_username)
-        receiver = User.objects.get(username=receiver_username)
+            Message.objects.create(
+                sender_id=str(sender.id),
+                receiver_id=str(receiver.id),
+                message=message
+            )
+            print(f"[DB SAVE] Message saved from {sender.username} to {receiver.username}")
 
-        Message(
-            sender_id=str(sender.id),
-            receiver_id=str(receiver.id),
-            message=message
-        ).save()
+        except Exception as e:
+            print(f"[DB ERROR] {str(e)}")
